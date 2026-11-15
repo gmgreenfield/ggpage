@@ -101,6 +101,11 @@ impl App {
         self.height = height;
     }
 
+    /// Set the initial chop (column-width cap) state.
+    pub fn set_chop(&mut self, chop: bool) {
+        self.vp.chop = chop;
+    }
+
     /// True once any content has been received.
     pub fn has_content(&self) -> bool {
         !self.blocks.is_empty()

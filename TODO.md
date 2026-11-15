@@ -18,10 +18,10 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 ## Phase 1 — must-haves
 
 ### Input / source layer
-- [ ] Non-TTY stdout → copy stdin to stdout unchanged (`passthrough`)
-- [ ] Streaming line reader that does not block on EOF
-- [ ] CLI flags: `-S` (chop long lines), file args, `+` commands (less compat subset)
-- [ ] Read from stdin pipe; read from file argument
+- [x] Non-TTY stdout → copy stdin to stdout unchanged (`passthrough`)
+- [x] Streaming line reader that does not block on EOF (reader thread + channel)
+- [x] CLI flags: `-S`, file arg, `-V`/`-h`, forgiving `+`/`-` less-compat subset
+- [x] Read from stdin pipe; read from file argument
 
 ### Parsing (TDD — tests first)
 - [x] Format detection (boxed / vertical `\G` / TSV batch / plain)
@@ -45,7 +45,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Frozen first column(s) during horizontal scroll
 - [x] Horizontal scroll offset + `-S` chop toggle (chop = cap column width)
 - [x] Render-to-structured-grid (pure) for tests; tui blits it
-- [ ] Terminal resize handling (tui layer)
+- [x] Terminal resize handling (tui layer: Resize event → app.resize)
 - [x] Column width computation (sampled, streaming-friendly — `Widths`)
 
 ### Key handling (TDD — tests first)
@@ -56,17 +56,18 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Horizontal scroll keys (h/l, arrows, `<`/`>`)
 
 ### TUI integration (thin — Ratatui + crossterm)
-- [ ] Terminal bootstrap (raw mode, alt screen) + restore on panic/exit
-- [ ] Event loop; translate crossterm events → pure key actions
-- [ ] TestBackend-based render tests
-- [ ] Status/prompt line (less-style `:` prompt, search input)
-- [ ] Wire parser stream → model → view → widget
-- [ ] Render while reading (reader thread feeding model, redraw on update)
+- [x] Terminal bootstrap (raw mode, alt screen) + restore on panic/exit
+      (ratatui::init/restore; key input via /dev/tty so stdin stays the pipe)
+- [x] Event loop; translate crossterm events → pure key actions
+- [x] TestBackend-based render tests
+- [x] Status/prompt line (less-style status + `/`/`?` search input)
+- [x] Wire parser stream → model → view → widget
+- [x] Render while reading (reader thread feeding model, redraw on update)
 
 ### Integration
-- [ ] End-to-end: `mysql` boxed output → interactive view
-- [ ] `pager ggpage` usage documented + tested via env
-- [ ] Works via `$PAGER`
+- [x] End-to-end: `mysql` boxed output → interactive view (TestBackend render)
+- [x] `pager ggpage` usage documented (README/help)
+- [x] Works via `$PAGER` (reads stdin pipe; /dev/tty for keys)
 - [ ] Manual smoke test against real mysql/psql/sqlite3/mycli
 
 ## Phase 2 — differentiators (DO NOT START until phase 1 done + tested)

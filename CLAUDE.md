@@ -79,4 +79,12 @@ PAGER='ggpage' mysql                               # via $PAGER
 - TSV batch output has no borders — detect via consistent tab counts and the
   absence of boxed borders.
 - Restore the terminal (leave alt screen, disable raw mode) even on panic —
-  install a panic hook in `tui`.
+  `ratatui::init()` installs a restoring panic hook; we call `ratatui::restore()`.
+- Key input must come from `/dev/tty`, not stdin, because stdin is the data
+  pipe. This is why crossterm is built with the `use-dev-tty` feature.
+- `app` is the pure integration layer: it turns parse events into table/text
+  "blocks", owns the viewport + search + modes, and emits a `Frame`. `tui` only
+  does terminal I/O + style mapping, so the whole interaction is unit-tested
+  (see `app/tests.rs`) and rendered via ratatui's `TestBackend` (`tui` tests).
+- NULL vs "": a *parsed* `NULL` token becomes `Cell::Null`; a literal string
+  `"NULL"` is indistinguishable in rendered output and also treated as NULL.
