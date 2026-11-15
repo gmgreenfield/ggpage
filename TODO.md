@@ -12,8 +12,8 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] CLAUDE.md
 - [x] .gitignore
 - [x] Add deps: ratatui, crossterm, unicode-width
-- [ ] CI (GitHub Actions: build, clippy, test, fmt --check)
-- [ ] README (setup instructions)
+- [x] CI (GitHub Actions: build, clippy, test, fmt --check)
+- [x] README (setup instructions)
 
 ## Phase 1 — must-haves
 
