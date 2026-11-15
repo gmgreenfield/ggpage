@@ -40,13 +40,13 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Width measurement: Unicode width + ANSI escape aware (`width` module)
 
 ### View / layout (TDD — tests first)
-- [ ] Viewport model: vertical scroll offset, row window
-- [ ] Pinned header row(s)
-- [ ] Frozen first column(s) during horizontal scroll
-- [ ] Horizontal scroll offset + `-S` chop toggle
-- [ ] Render-to-buffer (cell grid) for tests via ratatui TestBackend
-- [ ] Terminal resize handling
-- [ ] Column width computation (sampled, streaming-friendly)
+- [x] Viewport model: vertical scroll offset, row window
+- [x] Pinned header row(s)
+- [x] Frozen first column(s) during horizontal scroll
+- [x] Horizontal scroll offset + `-S` chop toggle (chop = cap column width)
+- [x] Render-to-structured-grid (pure) for tests; tui blits it
+- [ ] Terminal resize handling (tui layer)
+- [x] Column width computation (sampled, streaming-friendly — `Widths`)
 
 ### Key handling (TDD — tests first)
 - [ ] less keys: `j`/`k`, space/`b`, `d`/`u`, `g`/`G`, `q`

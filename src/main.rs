@@ -1,5 +1,6 @@
 mod parse;
 mod table;
+mod view;
 mod width;
 
 fn main() {
