@@ -35,9 +35,9 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [ ] Streaming parse: emit rows as they arrive, bounded memory
 
 ### Table model
-- [ ] Column/Row/Cell model, append-driven (NULL distinct from "")
+- [x] Column/Row/Cell model, append-driven (NULL distinct from "")
 - [ ] Bounded/compact storage for large result sets
-- [ ] Width measurement: Unicode width + ANSI escape aware (`width` module)
+- [x] Width measurement: Unicode width + ANSI escape aware (`width` module)
 
 ### View / layout (TDD — tests first)
 - [ ] Viewport model: vertical scroll offset, row window
