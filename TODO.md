@@ -24,15 +24,15 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [ ] Read from stdin pipe; read from file argument
 
 ### Parsing (TDD — tests first)
-- [ ] Format detection (boxed / vertical `\G` / TSV batch / plain)
-- [ ] Parse mysql boxed tables (`+---+---+`)
-- [ ] Parse `\G` vertical output
-- [ ] Parse tab-separated batch output
-- [ ] MariaDB quirks (box-drawing chars, differing footers)
-- [ ] Multiple result sets in one stream
-- [ ] `N rows in set` footer handling (+ `Query OK`, `Empty set`)
-- [ ] NULL token distinct from empty string
-- [ ] Streaming parse: emit rows as they arrive, bounded memory
+- [x] Format detection (boxed / vertical `\G` / TSV batch / plain)
+- [x] Parse mysql boxed tables (`+---+---+`)
+- [x] Parse `\G` vertical output
+- [x] Parse tab-separated batch output
+- [x] MariaDB quirks (box-drawing chars, differing footers)
+- [x] Multiple result sets in one stream
+- [x] `N rows in set` footer handling (+ `Query OK`, `Empty set`)
+- [x] NULL token distinct from empty string
+- [x] Streaming parse: emit rows as they arrive, bounded memory
 
 ### Table model
 - [x] Column/Row/Cell model, append-driven (NULL distinct from "")

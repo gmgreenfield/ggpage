@@ -1,3 +1,4 @@
+mod parse;
 mod table;
 mod width;
 
