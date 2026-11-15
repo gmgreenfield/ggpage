@@ -88,22 +88,54 @@ fn chop_toggle_via_dash_s() {
 }
 
 #[test]
-fn horizontal_scroll_keeps_frozen_column() {
-    // Wide table so scrolling right still shows the frozen first column.
+fn cursor_reveals_column_and_keeps_frozen() {
+    // Narrow width so not every column fits; moving the cursor to the last
+    // column scrolls earlier scrollable columns off, but the frozen first
+    // column stays put.
     let input = "\
 +----+------+------+------+
-| id | a    | b    | c    |
+| id | aaaa | bbbb | cccc |
 +----+------+------+------+
-|  1 | aaaa | bbbb | cccc |
+|  1 | w    | x    | y    |
 +----+------+------+------+
 1 row in set
 ";
-    let mut app = App::new(40, 6);
+    let mut app = App::new(16, 6);
     feed(&mut app, input);
-    app.on_key(code(KeyCode::Right)); // scroll right one column
+    app.on_key(key('>')); // cursor to last column, revealing it
     let header = app.frame().header.unwrap().plain();
     assert!(header.contains("id")); // frozen column still present
-    assert!(!header.contains("a   ")); // "a" column scrolled off
+    assert!(header.contains("cccc")); // cursor column revealed
+    assert!(!header.contains("aaaa")); // an earlier scrollable column scrolled off
+}
+
+#[test]
+fn cursor_column_header_is_marked() {
+    let mut app = App::new(80, 6);
+    feed(&mut app, TABLE);
+    app.on_key(code(KeyCode::Right)); // cursor id -> name
+    let header = app.frame().header.unwrap();
+    assert!(
+        header
+            .spans
+            .iter()
+            .any(|s| s.kind == crate::view::SpanKind::HeaderCursor && s.text.contains("name"))
+    );
+}
+
+#[test]
+fn stats_popup_for_current_column() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(code(KeyCode::Right)); // cursor on "name"
+    app.on_key(key('s'));
+    let f = app.frame();
+    let popup = f.popup.expect("stats popup");
+    assert!(popup.title.contains("name"));
+    assert!(popup.lines.iter().any(|l| l.contains("distinct")));
+    // any key dismisses it
+    app.on_key(key('q'));
+    assert!(app.frame().popup.is_none());
 }
 
 #[test]

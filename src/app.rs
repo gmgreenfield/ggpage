@@ -8,6 +8,7 @@
 use crate::export::{self, Format};
 use crate::keys::{self, Action, Cmd, SearchKey};
 use crate::parse::Event;
+use crate::stats;
 use crate::table::Table;
 use crate::view::{self, DEFAULT_CHOP_CAP, RenderLine, Span, SpanKind, Viewport, Widths};
 use crate::width::{display_width, pad_to_width, slice_width};
@@ -56,13 +57,21 @@ pub enum Effect {
     Clipboard { contents: String },
 }
 
+/// A centered overlay (stats, cell view, diff, …).
+pub struct Popup {
+    pub title: String,
+    pub lines: Vec<String>,
+}
+
 /// A frame ready to be drawn: a pinned header (tables only), body lines, a
-/// one-line status, and an optional prompt (shown instead of status).
+/// one-line status, an optional prompt (shown instead of status), and an
+/// optional centered popup overlay.
 pub struct Frame {
     pub header: Option<RenderLine>,
     pub body: Vec<RenderLine>,
     pub status: String,
     pub prompt: Option<String>,
+    pub popup: Option<Popup>,
 }
 
 pub struct App {
@@ -83,6 +92,10 @@ pub struct App {
     cap: usize,
     /// A side effect awaiting execution by the `tui` layer.
     pending_effect: Option<Effect>,
+    /// Current column (cursor) within a table block.
+    cursor_col: usize,
+    /// An open overlay, shown until the next key dismisses it.
+    popup: Option<Popup>,
 }
 
 impl Default for App {
@@ -106,6 +119,8 @@ impl App {
             message: None,
             cap: DEFAULT_CHOP_CAP,
             pending_effect: None,
+            cursor_col: 0,
+            popup: None,
         }
     }
 
@@ -199,6 +214,11 @@ impl App {
     /// Handle a key event. Returns `true` if the app should quit.
     pub fn on_key(&mut self, ev: KeyEvent) -> bool {
         self.message = None;
+        // Any key dismisses an open popup.
+        if self.popup.is_some() {
+            self.popup = None;
+            return false;
+        }
         match &mut self.mode {
             Mode::Normal => return self.on_normal_key(ev),
             Mode::Search { .. } => self.on_search_key(ev),
@@ -225,9 +245,23 @@ impl App {
                     self.message = Some("export: current block is not a table".into());
                 }
             }
+            Some(Cmd::ShowStats) => self.show_stats(),
             None => {}
         }
         false
+    }
+
+    fn show_stats(&mut self) {
+        let col = self.cursor_col;
+        let Some(table) = self.current_table() else {
+            self.message = Some("stats: current block is not a table".into());
+            return;
+        };
+        let st = stats::column_stats(table, col);
+        self.popup = Some(Popup {
+            title: format!("column stats · {}", st.column),
+            lines: st.lines(),
+        });
     }
 
     /// Map an export-mode key to (format, to-clipboard?). Uppercase = clipboard.
@@ -336,10 +370,10 @@ impl App {
             Action::PageUp => self.vp.scroll_v(-(page as isize), nrows, page),
             Action::GotoTop => self.vp.goto_top(),
             Action::GotoBottom => self.vp.goto_bottom(nrows, page),
-            Action::ColLeft => self.col_scroll(-1, ncols),
-            Action::ColRight => self.col_scroll(1, ncols),
-            Action::ColHome => self.vp.h_home(),
-            Action::ColEnd => self.col_end(ncols),
+            Action::ColLeft => self.cursor_move(-1, ncols),
+            Action::ColRight => self.cursor_move(1, ncols),
+            Action::ColHome => self.cursor_home(),
+            Action::ColEnd => self.cursor_end(ncols),
             Action::ToggleChop => self.vp.chop = !self.vp.chop,
             Action::NextMatch => self.repeat_search(self.search_forward),
             Action::PrevMatch => self.repeat_search(!self.search_forward),
@@ -347,22 +381,67 @@ impl App {
         false
     }
 
-    /// Horizontal scroll: whole columns for tables, 8-column steps for text.
-    fn col_scroll(&mut self, dir: isize, ncols: usize) {
-        if self.is_table() {
-            self.vp.scroll_h(dir, ncols);
-        } else {
+    /// Move the column cursor (tables) or scroll text horizontally.
+    fn cursor_move(&mut self, dir: isize, ncols: usize) {
+        if !self.is_table() {
             let step = 8 * dir;
             let new = (self.vp.hscroll as isize + step).max(0) as usize;
             self.vp.hscroll = new.min(ncols.saturating_sub(1));
+            return;
+        }
+        if ncols == 0 {
+            return;
+        }
+        let new = (self.cursor_col as isize + dir).clamp(0, ncols as isize - 1) as usize;
+        self.cursor_col = new;
+        self.reveal_col(new);
+    }
+
+    fn cursor_home(&mut self) {
+        if self.is_table() {
+            self.cursor_col = 0;
+            self.vp.h_home();
+        } else {
+            self.vp.h_home();
         }
     }
 
-    fn col_end(&mut self, ncols: usize) {
+    fn cursor_end(&mut self, ncols: usize) {
         if self.is_table() {
-            self.vp.h_end(ncols);
+            self.cursor_col = ncols.saturating_sub(1);
+            self.reveal_col(self.cursor_col);
         } else {
             self.vp.hscroll = ncols.saturating_sub(self.width.max(1));
+        }
+    }
+
+    /// Adjust horizontal scroll so the given column is visible. Frozen columns
+    /// are always visible and need no scrolling.
+    fn reveal_col(&mut self, col: usize) {
+        let (_, ncols) = self.extent();
+        let frozen = self.vp.frozen.min(ncols);
+        if col < frozen {
+            return;
+        }
+        let scroll_idx = col - frozen;
+        if scroll_idx < self.vp.hscroll {
+            self.vp.hscroll = scroll_idx;
+            return;
+        }
+        let eff = self.current_widths_eff();
+        while self.vp.hscroll < scroll_idx {
+            let visible = view::visible_column_indices(&eff, frozen, self.vp.hscroll, self.width);
+            if visible.contains(&col) {
+                break;
+            }
+            self.vp.hscroll += 1;
+        }
+    }
+
+    fn current_widths_eff(&self) -> Vec<usize> {
+        match self.blocks.get(self.cur) {
+            Some(Block::Table { widths, .. }) => widths.effective(self.vp.chop, self.cap),
+            _ => Vec::new(),
         }
     }
 
@@ -442,7 +521,16 @@ impl App {
         let (header, body) = match self.blocks.get(self.cur) {
             Some(Block::Table { table, widths }) => {
                 let eff = widths.effective(self.vp.chop, self.cap);
-                let r = view::render(table, &eff, &self.vp, self.width, body_h, self.match_row);
+                let cursor = Some(self.cursor_col.min(table.ncols().saturating_sub(1)));
+                let r = view::render(
+                    table,
+                    &eff,
+                    &self.vp,
+                    self.width,
+                    body_h,
+                    self.match_row,
+                    cursor,
+                );
                 (Some(r.header), r.rows)
             }
             Some(Block::Text(lines)) => (None, self.render_text(lines, body_h)),
@@ -459,11 +547,17 @@ impl App {
             _ => None,
         };
 
+        let popup = self.popup.as_ref().map(|p| Popup {
+            title: p.title.clone(),
+            lines: p.lines.clone(),
+        });
+
         Frame {
             header,
             body,
             status: self.status_line(),
             prompt,
+            popup,
         }
     }
 

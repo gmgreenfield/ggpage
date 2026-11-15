@@ -85,8 +85,9 @@ export PAGER=ggpage
 | `space` / `b`, `PgDn` / `PgUp` | page down / up |
 | `d` / `u` | half-page down / up |
 | `g` / `G`, `Home` / `End` | top / bottom |
-| `h` / `l`, `←` / `→` | scroll columns left / right |
+| `h` / `l`, `←` / `→` | move column cursor left / right |
 | `<` / `>` | first / last column |
+| `s` | column stats popup (rows, nulls, distinct, min/max) |
 | `/` `?` | search forward / backward |
 | `n` / `N` | next / previous match |
 | `-S` | toggle column chopping |

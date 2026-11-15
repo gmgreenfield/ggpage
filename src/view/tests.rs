@@ -111,7 +111,7 @@ fn header_is_pinned_and_rows_follow() {
     let t = sample();
     let w = widths_of(&t).effective(true, 48);
     let vp = Viewport::default();
-    let r = render(&t, &w, &vp, 200, 4, None); // header + 3 data rows
+    let r = render(&t, &w, &vp, 200, 4, None, None); // header + 3 data rows
     assert!(r.header.plain().starts_with("id"));
     assert_eq!(r.rows.len(), 3);
     assert!(r.rows[0].plain().starts_with("1 "));
@@ -125,7 +125,7 @@ fn render_respects_vertical_scroll() {
         top: 2,
         ..Viewport::default()
     };
-    let r = render(&t, &w, &vp, 200, 10, None);
+    let r = render(&t, &w, &vp, 200, 10, None, None);
     // data starts at row index 2 => id "3"
     assert!(r.rows[0].plain().starts_with("3 "));
     assert_eq!(r.rows.len(), 3); // only 5 rows total, from index 2
@@ -137,7 +137,7 @@ fn frozen_column_stays_when_scrolled_right() {
     let w = widths_of(&t).effective(true, 48);
     let mut vp = Viewport::default(); // frozen = 1 (id)
     vp.scroll_h(1, t.ncols()); // skip "name"; show id | city | note
-    let r = render(&t, &w, &vp, 200, 2, None);
+    let r = render(&t, &w, &vp, 200, 2, None, None);
     let header = r.header.plain();
     assert!(header.contains("id"));
     assert!(header.contains("city"));
@@ -152,7 +152,7 @@ fn narrow_area_truncates_last_column() {
     let w = widths_of(&t).effective(false, 999);
     let vp = Viewport::default();
     // Very narrow: only part of the table fits.
-    let r = render(&t, &w, &vp, 10, 2, None);
+    let r = render(&t, &w, &vp, 10, 2, None, None);
     assert!(display_width(&r.header.plain()) <= 10);
 }
 
@@ -163,7 +163,7 @@ fn null_cells_get_null_kind() {
     t.push_row(vec![Cell::Text(String::new())]);
     let w = widths_of(&t).effective(true, 48);
     let vp = Viewport::default();
-    let r = render(&t, &w, &vp, 50, 4, None);
+    let r = render(&t, &w, &vp, 50, 4, None, None);
     assert_eq!(r.rows[0].spans[0].kind, SpanKind::Null);
     assert!(r.rows[0].plain().starts_with("NULL"));
     assert_eq!(r.rows[1].spans[0].kind, SpanKind::Data);
@@ -175,7 +175,7 @@ fn highlight_row_is_marked() {
     let t = sample();
     let w = widths_of(&t).effective(true, 48);
     let vp = Viewport::default();
-    let r = render(&t, &w, &vp, 200, 10, None);
+    let r = render(&t, &w, &vp, 200, 10, None, None);
     // no highlight by default
     assert!(r.rows.iter().all(|l| !l.highlight));
 }

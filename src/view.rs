@@ -12,6 +12,8 @@ use crate::width::{display_width, pad_to_width};
 pub enum SpanKind {
     /// A pinned header cell.
     Header,
+    /// The header cell of the current (cursor) column.
+    HeaderCursor,
     /// An ordinary data cell.
     Data,
     /// A NULL value (rendered distinctly from an empty string).
@@ -232,7 +234,12 @@ fn visible_columns(
     out
 }
 
-fn build_line(cells: &[String], layout: &[(usize, usize, bool)], header: bool) -> RenderLine {
+fn build_line(
+    cells: &[String],
+    layout: &[(usize, usize, bool)],
+    header: bool,
+    cursor: Option<usize>,
+) -> RenderLine {
     let mut spans = Vec::new();
     for (i, &(col, w, last_frozen)) in layout.iter().enumerate() {
         if i > 0 {
@@ -247,7 +254,11 @@ fn build_line(cells: &[String], layout: &[(usize, usize, bool)], header: bool) -
         let is_null = raw == NULL_SENTINEL;
         let text = pad_to_width(if is_null { "NULL" } else { raw }, w);
         let kind = if header {
-            SpanKind::Header
+            if cursor == Some(col) {
+                SpanKind::HeaderCursor
+            } else {
+                SpanKind::Header
+            }
         } else if is_null {
             SpanKind::Null
         } else {
@@ -277,11 +288,12 @@ pub fn render(
     area_w: usize,
     area_h: usize,
     highlight_row: Option<usize>,
+    cursor_col: Option<usize>,
 ) -> Render {
     let layout = visible_columns(widths, vp.frozen, vp.hscroll, area_w);
 
     let header_cells = table.columns.clone();
-    let header = build_line(&header_cells, &layout, true);
+    let header = build_line(&header_cells, &layout, true, cursor_col);
 
     let data_rows = area_h.saturating_sub(1);
     let mut rows = Vec::with_capacity(data_rows);
@@ -297,12 +309,25 @@ pub fn render(
                 Cell::Text(s) => s.clone(),
             })
             .collect();
-        let mut line = build_line(&cells, &layout, false);
+        let mut line = build_line(&cells, &layout, false, None);
         line.highlight = highlight_row == Some(idx);
         rows.push(line);
     }
 
     Render { header, rows }
+}
+
+/// The column indices currently visible for the given scroll state and width.
+pub fn visible_column_indices(
+    widths: &[usize],
+    frozen: usize,
+    hscroll: usize,
+    area_w: usize,
+) -> Vec<usize> {
+    visible_columns(widths, frozen, hscroll, area_w)
+        .into_iter()
+        .map(|(col, _, _)| col)
+        .collect()
 }
 
 #[cfg(test)]

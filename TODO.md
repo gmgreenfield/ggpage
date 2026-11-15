@@ -71,15 +71,16 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [ ] Manual smoke test against real mysql/psql/sqlite3/mycli
 
 ## Phase 2 — differentiators (DO NOT START until phase 1 done + tested)
+- [x] Column cursor (h/l/←/→) + reveal-scroll, highlighted header (foundation)
 - [ ] Column ops: hide / reorder / resize
 - [ ] Search within a single column
 - [ ] Pretty JSON popup for a cell
-- [ ] NULL vs '' distinct rendering (model already distinguishes)
+- [x] NULL vs '' distinct rendering (model + view distinguish)
 - [ ] BLOB / hex display
 - [x] Export view: CSV / Markdown / JSON / INSERT → file (`x`)
 - [x] Export to clipboard via OSC 52 (shift + format letter)
 - [ ] Mark two rows, field-by-field diff
-- [ ] Column stats: min/max, distinct, null count
+- [x] Column stats: min/max, distinct, null count (`s` popup, current column)
 - [ ] Detect EXPLAIN / EXPLAIN ANALYZE → tree render, highlight costly steps
 
 ## Release polish (last)

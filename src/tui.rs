@@ -9,12 +9,12 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event as CEvent, KeyEventKind};
 use ratatui::Frame as RFrame;
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span as RSpan, Text};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
-use crate::app::{App, Effect};
+use crate::app::{App, Effect, Popup};
 use crate::source::Msg;
 use crate::view::{RenderLine, SpanKind};
 
@@ -130,6 +130,49 @@ fn draw(f: &mut RFrame, app: &App) {
         Paragraph::new(Line::from(status.to_string())).style(status_style),
         chunks[2],
     );
+
+    if let Some(popup) = &frame.popup {
+        draw_popup(f, area, popup);
+    }
+}
+
+/// Draw a centered, bordered overlay for stats / cell view / diff.
+fn draw_popup(f: &mut RFrame, area: Rect, popup: &Popup) {
+    let content_w = popup
+        .lines
+        .iter()
+        .map(|l| crate::width::display_width(l))
+        .chain(std::iter::once(crate::width::display_width(&popup.title)))
+        .max()
+        .unwrap_or(0);
+    let w = (content_w as u16 + 4).min(area.width);
+    let h = (popup.lines.len() as u16 + 2).min(area.height);
+    let rect = centered_rect(area, w, h);
+
+    let text = Text::from(
+        popup
+            .lines
+            .iter()
+            .map(|l| Line::from(l.clone()))
+            .collect::<Vec<_>>(),
+    );
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(popup.title.clone())
+        .style(Style::default().fg(Color::White).bg(Color::Black));
+    f.render_widget(Clear, rect);
+    f.render_widget(Paragraph::new(text).block(block), rect);
+}
+
+fn centered_rect(area: Rect, w: u16, h: u16) -> Rect {
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    Rect {
+        x,
+        y,
+        width: w,
+        height: h,
+    }
 }
 
 /// Map a pure [`RenderLine`] to a styled ratatui [`Line`].
@@ -151,6 +194,10 @@ fn style_for(kind: SpanKind) -> Style {
         SpanKind::Header => Style::default()
             .fg(Color::Cyan)
             .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+        SpanKind::HeaderCursor => Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
         SpanKind::Data => Style::default(),
         SpanKind::Null => Style::default()
             .fg(Color::DarkGray)

@@ -9,6 +9,7 @@ mod export;
 mod keys;
 mod parse;
 mod source;
+mod stats;
 mod table;
 mod tui;
 mod view;

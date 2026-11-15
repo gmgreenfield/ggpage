@@ -39,8 +39,10 @@ pub enum Cmd {
     BeginSearch { forward: bool },
     /// Enter option mode (a `-` was pressed, as in `less -S`).
     BeginOption,
-    /// Enter export mode (`e`): the next key chooses the format/destination.
+    /// Enter export mode (`x`): the next key chooses the format/destination.
     BeginExport,
+    /// Show column statistics for the current column (`s`).
+    ShowStats,
 }
 
 /// Map a normal-mode key event to a command, or `None` if unbound.
@@ -75,6 +77,7 @@ pub fn normal(ev: KeyEvent) -> Option<Cmd> {
 
         Char('-') => Cmd::BeginOption,
         Char('x') => Cmd::BeginExport,
+        Char('s') => Cmd::ShowStats,
 
         _ => return None,
     };
@@ -186,6 +189,7 @@ mod tests {
         assert_eq!(normal(key('N')), Some(Cmd::Do(Action::PrevMatch)));
         assert_eq!(normal(key('-')), Some(Cmd::BeginOption));
         assert_eq!(normal(key('x')), Some(Cmd::BeginExport));
+        assert_eq!(normal(key('s')), Some(Cmd::ShowStats));
     }
 
     #[test]
