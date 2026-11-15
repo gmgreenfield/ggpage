@@ -76,8 +76,8 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [ ] Pretty JSON popup for a cell
 - [ ] NULL vs '' distinct rendering (model already distinguishes)
 - [ ] BLOB / hex display
-- [ ] Export view: CSV / Markdown / JSON / INSERT → file
-- [ ] Export to clipboard via OSC 52
+- [x] Export view: CSV / Markdown / JSON / INSERT → file (`x`)
+- [x] Export to clipboard via OSC 52 (shift + format letter)
 - [ ] Mark two rows, field-by-field diff
 - [ ] Column stats: min/max, distinct, null count
 - [ ] Detect EXPLAIN / EXPLAIN ANALYZE → tree render, highlight costly steps

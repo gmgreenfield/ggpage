@@ -5,6 +5,7 @@
 //! actions via [`keys`], and produces a [`Frame`] of styled lines for the thin
 //! `tui` layer to draw. It never performs I/O.
 
+use crate::export::{self, Format};
 use crate::keys::{self, Action, Cmd, SearchKey};
 use crate::parse::Event;
 use crate::table::Table;
@@ -43,6 +44,16 @@ enum Mode {
     },
     /// A `-` was pressed; the next key is the option letter.
     Option,
+    /// `e` was pressed; the next key chooses the export format/destination.
+    Export,
+}
+
+/// A side effect the pure app requests of the `tui` I/O layer.
+pub enum Effect {
+    /// Write `contents` to `path` on disk.
+    WriteFile { path: String, contents: String },
+    /// Copy `contents` to the system clipboard (OSC 52).
+    Clipboard { contents: String },
 }
 
 /// A frame ready to be drawn: a pinned header (tables only), body lines, a
@@ -70,6 +81,8 @@ pub struct App {
     /// Transient message (e.g. "pattern not found").
     message: Option<String>,
     cap: usize,
+    /// A side effect awaiting execution by the `tui` layer.
+    pending_effect: Option<Effect>,
 }
 
 impl Default for App {
@@ -92,7 +105,18 @@ impl App {
             match_row: None,
             message: None,
             cap: DEFAULT_CHOP_CAP,
+            pending_effect: None,
         }
+    }
+
+    /// Take the pending side effect, if any, for the I/O layer to perform.
+    pub fn take_effect(&mut self) -> Option<Effect> {
+        self.pending_effect.take()
+    }
+
+    /// Set a transient status message (e.g. an export result from the tui).
+    pub fn set_message(&mut self, msg: impl Into<String>) {
+        self.message = Some(msg.into());
     }
 
     pub fn resize(&mut self, width: usize, height: usize) {
@@ -179,6 +203,7 @@ impl App {
             Mode::Normal => return self.on_normal_key(ev),
             Mode::Search { .. } => self.on_search_key(ev),
             Mode::Option => self.on_option_key(ev),
+            Mode::Export => self.on_export_key(ev),
         }
         false
     }
@@ -193,9 +218,68 @@ impl App {
                 };
             }
             Some(Cmd::BeginOption) => self.mode = Mode::Option,
+            Some(Cmd::BeginExport) => {
+                if self.current_table().is_some() {
+                    self.mode = Mode::Export;
+                } else {
+                    self.message = Some("export: current block is not a table".into());
+                }
+            }
             None => {}
         }
         false
+    }
+
+    /// Map an export-mode key to (format, to-clipboard?). Uppercase = clipboard.
+    fn on_export_key(&mut self, ev: KeyEvent) {
+        let KeyCode::Char(c) = ev.code else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        let choice = match c {
+            'c' => Some((Format::Csv, false)),
+            'C' => Some((Format::Csv, true)),
+            'm' => Some((Format::Markdown, false)),
+            'M' => Some((Format::Markdown, true)),
+            'j' => Some((Format::Json, false)),
+            'J' => Some((Format::Json, true)),
+            'i' => Some((Format::Insert, false)),
+            'I' => Some((Format::Insert, true)),
+            _ => None,
+        };
+        self.mode = Mode::Normal;
+        if let Some((format, clipboard)) = choice {
+            self.do_export(format, clipboard);
+        }
+    }
+
+    fn do_export(&mut self, format: Format, clipboard: bool) {
+        let Some(table) = self.current_table() else {
+            return;
+        };
+        let rows = table.nrows();
+        let contents = export::export(table, format, "exported");
+        if clipboard {
+            self.message = Some(format!(
+                "copied {rows} rows as {} to clipboard",
+                format.label()
+            ));
+            self.pending_effect = Some(Effect::Clipboard { contents });
+        } else {
+            let path = format!("ggpage-export.{}", format.extension());
+            self.message = Some(format!(
+                "exported {rows} rows as {} → {path}",
+                format.label()
+            ));
+            self.pending_effect = Some(Effect::WriteFile { path, contents });
+        }
+    }
+
+    fn current_table(&self) -> Option<&Table> {
+        match self.blocks.get(self.cur) {
+            Some(Block::Table { table, .. }) => Some(table),
+            _ => None,
+        }
     }
 
     fn on_search_key(&mut self, ev: KeyEvent) {
@@ -368,6 +452,9 @@ impl App {
         let prompt = match &self.mode {
             Mode::Search { buf, forward } => {
                 Some(format!("{}{}", if *forward { '/' } else { '?' }, buf))
+            }
+            Mode::Export => {
+                Some("export: [c]sv [m]d [j]son [i]nsert — SHIFT for clipboard, Esc cancels".into())
             }
             _ => None,
         };

@@ -182,6 +182,56 @@ fn multiple_blocks_counted_in_status() {
 }
 
 #[test]
+fn export_to_file_produces_write_effect() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key('x'));
+    app.on_key(key('c')); // CSV to file
+    match app.take_effect() {
+        Some(Effect::WriteFile { path, contents }) => {
+            assert_eq!(path, "ggpage-export.csv");
+            assert!(contents.starts_with("id,name\n"));
+            assert!(contents.contains("alice"));
+        }
+        _ => panic!("expected a WriteFile effect"),
+    }
+    assert!(app.frame().status.contains("exported"));
+}
+
+#[test]
+fn export_to_clipboard_produces_clipboard_effect() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key('x'));
+    app.on_key(key('J')); // JSON to clipboard (shift)
+    match app.take_effect() {
+        Some(Effect::Clipboard { contents }) => assert!(contents.starts_with("[\n")),
+        _ => panic!("expected a Clipboard effect"),
+    }
+    assert!(app.frame().status.contains("clipboard"));
+}
+
+#[test]
+fn export_prompt_is_shown_then_cancelled() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key('x'));
+    assert!(app.frame().prompt.unwrap().contains("export:"));
+    app.on_key(code(KeyCode::Esc));
+    assert!(app.frame().prompt.is_none());
+    assert!(app.take_effect().is_none());
+}
+
+#[test]
+fn export_refused_on_text_block() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, "just text\n");
+    app.on_key(key('x'));
+    assert!(app.take_effect().is_none());
+    assert!(app.frame().status.contains("not a table"));
+}
+
+#[test]
 fn resize_changes_page_size() {
     let mut app = App::new(80, 24);
     feed(&mut app, TABLE);

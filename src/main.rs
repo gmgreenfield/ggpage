@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 
 mod app;
+mod clip;
 mod export;
 mod keys;
 mod parse;

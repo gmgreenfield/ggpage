@@ -90,7 +90,15 @@ export PAGER=ggpage
 | `/` `?` | search forward / backward |
 | `n` / `N` | next / previous match |
 | `-S` | toggle column chopping |
+| `x` | export (then `c`/`m`/`j`/`i` to a file; shift for clipboard) |
 | `q`, `Ctrl-C` | quit |
+
+### Export
+
+Press `x`, then pick a format — `c` CSV, `m` Markdown, `j` JSON, `i` INSERT.
+A lowercase letter writes `ggpage-export.<ext>` in the current directory; the
+uppercase letter (`C`/`M`/`J`/`I`) copies to the system clipboard via OSC 52
+(works over SSH). NULL is preserved as `null` in JSON and `NULL` in INSERT.
 
 ## Development
 

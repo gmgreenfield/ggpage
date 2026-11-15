@@ -14,7 +14,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span as RSpan, Text};
 use ratatui::widgets::Paragraph;
 
-use crate::app::App;
+use crate::app::{App, Effect};
 use crate::source::Msg;
 use crate::view::{RenderLine, SpanKind};
 
@@ -63,12 +63,40 @@ fn event_loop(
         if event::poll(timeout)? {
             match event::read()? {
                 CEvent::Key(k) if k.kind != KeyEventKind::Release => {
-                    if app.on_key(k) {
+                    let quit = app.on_key(k);
+                    if let Some(effect) = app.take_effect() {
+                        perform_effect(app, effect);
+                    }
+                    if quit {
                         return Ok(());
                     }
                 }
                 CEvent::Resize(w, h) => app.resize(w as usize, h as usize),
                 _ => {}
+            }
+        }
+    }
+}
+
+/// Perform a side effect the app requested (file write or clipboard copy),
+/// reporting the outcome back through the status message.
+fn perform_effect(app: &mut App, effect: Effect) {
+    use std::io::Write;
+    match effect {
+        Effect::WriteFile { path, contents } => {
+            if let Err(e) = std::fs::write(&path, contents) {
+                app.set_message(format!("export failed: {e}"));
+            }
+        }
+        Effect::Clipboard { contents } => {
+            let seq = crate::clip::osc52_sequence(&contents);
+            let mut out = io::stdout();
+            if out
+                .write_all(seq.as_bytes())
+                .and_then(|_| out.flush())
+                .is_err()
+            {
+                app.set_message("clipboard copy failed");
             }
         }
     }
