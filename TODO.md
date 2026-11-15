@@ -49,11 +49,11 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Column width computation (sampled, streaming-friendly — `Widths`)
 
 ### Key handling (TDD — tests first)
-- [ ] less keys: `j`/`k`, space/`b`, `d`/`u`, `g`/`G`, `q`
-- [ ] Arrow keys (up/down/left/right), PageUp/PageDown, Home/End
-- [ ] `-S` chop toggle key
-- [ ] Search: `/`, `?`, `n`, `N`
-- [ ] Horizontal scroll keys (left/right, `<`/`>`)
+- [x] less keys: `j`/`k`, space/`b`, `d`/`u`, `g`/`G`, `q`
+- [x] Arrow keys (up/down/left/right), PageUp/PageDown, Home/End
+- [x] `-S` chop toggle key (`-` then `S`)
+- [x] Search: `/`, `?`, `n`, `N` (begin-search + input editing)
+- [x] Horizontal scroll keys (h/l, arrows, `<`/`>`)
 
 ### TUI integration (thin — Ratatui + crossterm)
 - [ ] Terminal bootstrap (raw mode, alt screen) + restore on panic/exit

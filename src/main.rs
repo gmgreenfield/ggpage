@@ -1,3 +1,4 @@
+mod keys;
 mod parse;
 mod table;
 mod view;
