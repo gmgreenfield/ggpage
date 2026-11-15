@@ -8,7 +8,7 @@
 use crate::keys::{self, Action, Cmd, SearchKey};
 use crate::parse::Event;
 use crate::table::Table;
-use crate::view::{self, RenderLine, Span, SpanKind, Viewport, Widths, DEFAULT_CHOP_CAP};
+use crate::view::{self, DEFAULT_CHOP_CAP, RenderLine, Span, SpanKind, Viewport, Widths};
 use crate::width::{display_width, pad_to_width, slice_width};
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -28,11 +28,7 @@ impl Block {
     fn ncols(&self) -> usize {
         match self {
             Block::Table { table, .. } => table.ncols(),
-            Block::Text(lines) => lines
-                .iter()
-                .map(|l| display_width(l))
-                .max()
-                .unwrap_or(0),
+            Block::Text(lines) => lines.iter().map(|l| display_width(l)).max().unwrap_or(0),
         }
     }
 }
@@ -41,7 +37,10 @@ impl Block {
 enum Mode {
     Normal,
     /// Editing the search prompt; `forward` is `/` vs `?`.
-    Search { buf: String, forward: bool },
+    Search {
+        buf: String,
+        forward: bool,
+    },
     /// A `-` was pressed; the next key is the option letter.
     Option,
 }
@@ -218,12 +217,12 @@ impl App {
                     _ => None,
                 };
                 self.mode = Mode::Normal;
-                if let Some((q, fwd)) = submitted {
-                    if !q.is_empty() {
-                        self.query = q;
-                        self.search_forward = fwd;
-                        self.search_from(self.vp.top, fwd);
-                    }
+                if let Some((q, fwd)) = submitted
+                    && !q.is_empty()
+                {
+                    self.query = q;
+                    self.search_forward = fwd;
+                    self.search_from(self.vp.top, fwd);
                 }
             }
             Some(SearchKey::Cancel) => self.mode = Mode::Normal,
@@ -232,10 +231,10 @@ impl App {
     }
 
     fn on_option_key(&mut self, ev: KeyEvent) {
-        if let KeyCode::Char(c) = ev.code {
-            if let Some(a) = keys::option(c) {
-                self.apply_action(a);
-            }
+        if let KeyCode::Char(c) = ev.code
+            && let Some(a) = keys::option(c)
+        {
+            self.apply_action(a);
         }
         self.mode = Mode::Normal;
     }
@@ -382,18 +381,19 @@ impl App {
     }
 
     fn render_text(&self, lines: &[String], body_h: usize) -> Vec<RenderLine> {
-        let mut out = Vec::with_capacity(body_h);
-        for i in self.vp.top..(self.vp.top + body_h).min(lines.len()) {
-            let sliced = slice_width(&lines[i], self.vp.hscroll, self.width);
-            out.push(RenderLine {
+        lines
+            .iter()
+            .enumerate()
+            .skip(self.vp.top)
+            .take(body_h)
+            .map(|(i, line)| RenderLine {
                 spans: vec![Span {
-                    text: sliced,
+                    text: slice_width(line, self.vp.hscroll, self.width),
                     kind: SpanKind::Data,
                 }],
                 highlight: self.match_row == Some(i),
-            });
-        }
-        out
+            })
+            .collect()
     }
 
     fn status_line(&self) -> String {

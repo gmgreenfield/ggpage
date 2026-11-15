@@ -1,3 +1,8 @@
+// Several pure-module APIs are currently exercised only by unit tests, or are
+// reserved for phase-2 features (column ops, export, stats). They are
+// intentionally kept; revisit and tighten before the 1.0 release.
+#![allow(dead_code)]
+
 mod app;
 mod keys;
 mod parse;

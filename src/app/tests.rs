@@ -118,7 +118,11 @@ fn search_finds_and_reveals_row() {
     app.on_key(code(KeyCode::Enter));
     let f = app.frame();
     // the matching row should be visible and highlighted
-    assert!(f.body.iter().any(|l| l.highlight && l.plain().contains("carol")));
+    assert!(
+        f.body
+            .iter()
+            .any(|l| l.highlight && l.plain().contains("carol"))
+    );
 }
 
 #[test]

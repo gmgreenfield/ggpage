@@ -3,7 +3,12 @@ use crate::table::{Cell, Table};
 
 fn sample() -> Table {
     // 4 columns, 5 rows. Column names short; values varying widths.
-    let mut t = Table::new(vec!["id".into(), "name".into(), "city".into(), "note".into()]);
+    let mut t = Table::new(vec![
+        "id".into(),
+        "name".into(),
+        "city".into(),
+        "note".into(),
+    ]);
     for i in 1..=5 {
         t.push_row(vec![
             Cell::Text(i.to_string()),
@@ -116,8 +121,10 @@ fn header_is_pinned_and_rows_follow() {
 fn render_respects_vertical_scroll() {
     let t = sample();
     let w = widths_of(&t).effective(true, 48);
-    let mut vp = Viewport::default();
-    vp.top = 2;
+    let vp = Viewport {
+        top: 2,
+        ..Viewport::default()
+    };
     let r = render(&t, &w, &vp, 200, 10, None);
     // data starts at row index 2 => id "3"
     assert!(r.rows[0].plain().starts_with("3 "));

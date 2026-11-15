@@ -138,7 +138,10 @@ mod tests {
         assert_eq!(normal(key('b')), Some(Cmd::Do(Action::PageUp)));
         assert_eq!(normal(key('d')), Some(Cmd::Do(Action::HalfPageDown)));
         assert_eq!(normal(key('u')), Some(Cmd::Do(Action::HalfPageUp)));
-        assert_eq!(normal(code(KeyCode::PageDown)), Some(Cmd::Do(Action::PageDown)));
+        assert_eq!(
+            normal(code(KeyCode::PageDown)),
+            Some(Cmd::Do(Action::PageDown))
+        );
         assert_eq!(normal(code(KeyCode::PageUp)), Some(Cmd::Do(Action::PageUp)));
     }
 
@@ -147,7 +150,10 @@ mod tests {
         assert_eq!(normal(key('g')), Some(Cmd::Do(Action::GotoTop)));
         assert_eq!(normal(key('G')), Some(Cmd::Do(Action::GotoBottom)));
         assert_eq!(normal(code(KeyCode::Home)), Some(Cmd::Do(Action::GotoTop)));
-        assert_eq!(normal(code(KeyCode::End)), Some(Cmd::Do(Action::GotoBottom)));
+        assert_eq!(
+            normal(code(KeyCode::End)),
+            Some(Cmd::Do(Action::GotoBottom))
+        );
     }
 
     #[test]
@@ -155,7 +161,10 @@ mod tests {
         assert_eq!(normal(key('h')), Some(Cmd::Do(Action::ColLeft)));
         assert_eq!(normal(key('l')), Some(Cmd::Do(Action::ColRight)));
         assert_eq!(normal(code(KeyCode::Left)), Some(Cmd::Do(Action::ColLeft)));
-        assert_eq!(normal(code(KeyCode::Right)), Some(Cmd::Do(Action::ColRight)));
+        assert_eq!(
+            normal(code(KeyCode::Right)),
+            Some(Cmd::Do(Action::ColRight))
+        );
         assert_eq!(normal(key('<')), Some(Cmd::Do(Action::ColHome)));
         assert_eq!(normal(key('>')), Some(Cmd::Do(Action::ColEnd)));
     }
@@ -189,7 +198,10 @@ mod tests {
     #[test]
     fn search_input_editing() {
         assert_eq!(search_input(key('a')), Some(SearchKey::Insert('a')));
-        assert_eq!(search_input(code(KeyCode::Backspace)), Some(SearchKey::Backspace));
+        assert_eq!(
+            search_input(code(KeyCode::Backspace)),
+            Some(SearchKey::Backspace)
+        );
         assert_eq!(search_input(code(KeyCode::Enter)), Some(SearchKey::Submit));
         assert_eq!(search_input(code(KeyCode::Esc)), Some(SearchKey::Cancel));
         assert_eq!(search_input(ctrl('c')), Some(SearchKey::Cancel));

@@ -189,7 +189,10 @@ impl Parser {
             // Closing border; wait to see whether a footer follows.
             self.state = State::BoxClosed;
         } else if is_box_row(line) {
-            let cells = split_box_row(line).into_iter().map(cell_from_token).collect();
+            let cells = split_box_row(line)
+                .into_iter()
+                .map(cell_from_token)
+                .collect();
             out.push(Event::Row(cells));
         } else {
             // Malformed/short table; close it and reprocess the stray line.
@@ -294,8 +297,8 @@ impl Parser {
 
 const HORIZ: &[char] = &['-', '─', '━', '═'];
 const JUNCT: &[char] = &[
-    '+', '┼', '┿', '╋', '┬', '┴', '├', '┤', '┌', '┐', '└', '┘', '╬', '╪', '╞', '╡', '╔', '╗',
-    '╚', '╝', '╤', '╧', '╨', '╥',
+    '+', '┼', '┿', '╋', '┬', '┴', '├', '┤', '┌', '┐', '└', '┘', '╬', '╪', '╞', '╡', '╔', '╗', '╚',
+    '╝', '╤', '╧', '╨', '╥',
 ];
 const VBAR: &[char] = &['|', '│', '┃', '║'];
 

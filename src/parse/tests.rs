@@ -26,7 +26,10 @@ fn boxed_basic() {
     assert_eq!(ts.len(), 1);
     let t = &ts[0];
     assert_eq!(t.columns, vec!["id", "name"]);
-    assert_eq!(t.rows, vec![vec![txt("1"), txt("a")], vec![txt("2"), txt("b")]]);
+    assert_eq!(
+        t.rows,
+        vec![vec![txt("1"), txt("a")], vec![txt("2"), txt("b")]]
+    );
     assert_eq!(t.footer.as_deref(), Some("2 rows in set (0.00 sec)"));
 }
 
@@ -220,7 +223,10 @@ Warning: something
 1 row in set
 ";
     let events = parse_str(input);
-    assert_eq!(events[0], Event::Passthrough("Warning: something".to_string()));
+    assert_eq!(
+        events[0],
+        Event::Passthrough("Warning: something".to_string())
+    );
     let ts = collect_tables(&events);
     assert_eq!(ts.len(), 1);
     assert_eq!(ts[0].rows, vec![vec![txt("1")]]);
@@ -253,7 +259,12 @@ fn streaming_emits_rows_before_eof() {
     assert!(p.push_line("+----+").is_empty()); // top border held
     assert!(p.push_line("| a  |").is_empty()); // header held
     let ev = p.push_line("+----+"); // separator confirms table
-    assert_eq!(ev, vec![Event::StartTable { columns: vec!["a".into()] }]);
+    assert_eq!(
+        ev,
+        vec![Event::StartTable {
+            columns: vec!["a".into()]
+        }]
+    );
     let ev = p.push_line("|  1 |");
     assert_eq!(ev, vec![Event::Row(vec![txt("1")])]);
     let ev = p.push_line("|  2 |");

@@ -2,7 +2,7 @@
 //! channel (so the UI never blocks on EOF), plus the non-TTY raw copy path.
 
 use std::io::{BufRead, Read, Write};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{Receiver, channel};
 use std::thread;
 
 use crate::parse::{Event, Parser};

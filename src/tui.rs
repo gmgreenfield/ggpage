@@ -8,11 +8,11 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
 
 use crossterm::event::{self, Event as CEvent, KeyEventKind};
+use ratatui::Frame as RFrame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span as RSpan, Text};
 use ratatui::widgets::Paragraph;
-use ratatui::Frame as RFrame;
 
 use crate::app::App;
 use crate::source::Msg;
@@ -138,9 +138,9 @@ fn style_for(kind: SpanKind) -> Style {
 mod tests {
     use super::*;
     use crate::parse::parse_str;
+    use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::buffer::Buffer;
-    use ratatui::Terminal;
 
     fn row_text(buf: &Buffer, y: u16) -> String {
         let w = buf.area().width;
