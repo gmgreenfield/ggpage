@@ -88,6 +88,28 @@ pub fn truncate_to_width(s: &str, max: usize) -> (String, usize) {
     (out, used)
 }
 
+/// Take the horizontal slice of `s` covering display columns
+/// `[start, start + width)`, dropping ANSI escapes. A wide char straddling
+/// either boundary is dropped rather than split.
+pub fn slice_width(s: &str, start: usize, width: usize) -> String {
+    let mut col = 0;
+    let mut out = String::new();
+    let mut taken = 0;
+    for (c, w) in VisibleChars::new(s) {
+        if col < start {
+            col += w;
+            continue;
+        }
+        if taken + w > width {
+            break;
+        }
+        out.push(c);
+        taken += w;
+        col += w;
+    }
+    out
+}
+
 /// Pad `s` on the right with spaces until it reaches `width` display columns.
 /// If `s` is already wider, it is truncated to `width`.
 pub fn pad_to_width(s: &str, width: usize) -> String {
@@ -162,5 +184,18 @@ mod tests {
     #[test]
     fn pad_truncates_when_too_wide() {
         assert_eq!(pad_to_width("hello", 3), "hel");
+    }
+
+    #[test]
+    fn slice_takes_middle_columns() {
+        assert_eq!(slice_width("abcdef", 2, 3), "cde");
+        assert_eq!(slice_width("abcdef", 4, 10), "ef");
+        assert_eq!(slice_width("abcdef", 10, 3), "");
+    }
+
+    #[test]
+    fn slice_drops_straddling_wide_char() {
+        // "中" occupies cols 0-1, "x" col 2. Starting at col 1 drops the wide char.
+        assert_eq!(slice_width("中x", 1, 5), "x");
     }
 }

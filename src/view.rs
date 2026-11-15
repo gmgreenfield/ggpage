@@ -305,10 +305,5 @@ pub fn render(
     Render { header, rows }
 }
 
-/// The number of data rows that fit in an area of `area_h` lines.
-pub fn page_rows(area_h: usize) -> usize {
-    area_h.saturating_sub(1)
-}
-
 #[cfg(test)]
 mod tests;
