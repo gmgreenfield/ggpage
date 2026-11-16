@@ -7,6 +7,7 @@ mod app;
 mod cell;
 mod clip;
 mod diff;
+mod explain;
 mod export;
 mod keys;
 mod parse;

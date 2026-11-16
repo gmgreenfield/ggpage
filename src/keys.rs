@@ -48,6 +48,8 @@ pub enum Cmd {
     ViewCell,
     /// Mark the current row; marking a second row shows a diff (`m`).
     MarkRow,
+    /// Render an EXPLAIN tree plan with costly steps highlighted (`E`).
+    ShowExplain,
 }
 
 /// Map a normal-mode key event to a command, or `None` if unbound.
@@ -95,6 +97,7 @@ pub fn normal(ev: KeyEvent) -> Option<Cmd> {
         Char('s') => Cmd::ShowStats,
         Char('v') => Cmd::ViewCell,
         Char('m') => Cmd::MarkRow,
+        Char('E') => Cmd::ShowExplain,
 
         _ => return None,
     };
@@ -228,6 +231,7 @@ mod tests {
         assert_eq!(normal(key('s')), Some(Cmd::ShowStats));
         assert_eq!(normal(key('v')), Some(Cmd::ViewCell));
         assert_eq!(normal(key('m')), Some(Cmd::MarkRow));
+        assert_eq!(normal(key('E')), Some(Cmd::ShowExplain));
     }
 
     #[test]

@@ -90,6 +90,7 @@ export PAGER=ggpage
 | `s` | column stats popup (rows, nulls, distinct, min/max) |
 | `v` | view current cell (pretty JSON, hex for binary, or text) |
 | `m` | mark current row; mark a second row to diff them |
+| `E` | render EXPLAIN FORMAT=TREE / ANALYZE, highlighting costly steps |
 | `/` `?` | search forward / backward |
 | `\` | search within the current column only |
 | `n` / `N` | next / previous match |

@@ -149,11 +149,20 @@ fn draw_popup(f: &mut RFrame, area: Rect, popup: &Popup) {
     let h = (popup.lines.len() as u16 + 2).min(area.height);
     let rect = centered_rect(area, w, h);
 
+    let emph = Style::default().fg(Color::Red).add_modifier(Modifier::BOLD);
     let text = Text::from(
         popup
             .lines
             .iter()
-            .map(|l| Line::from(l.clone()))
+            .enumerate()
+            .map(|(i, l)| {
+                let line = Line::from(l.clone());
+                if popup.emphasis.get(i).copied().unwrap_or(false) {
+                    line.style(emph)
+                } else {
+                    line
+                }
+            })
             .collect::<Vec<_>>(),
     );
     let block = Block::default()

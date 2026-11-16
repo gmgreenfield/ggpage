@@ -381,6 +381,52 @@ fn marking_same_row_twice_unmarks() {
 }
 
 #[test]
+fn explain_tree_popup_highlights_costly_steps() {
+    // EXPLAIN FORMAT=TREE arrives as a single-column table, one line per row.
+    let input = "\
++-------------------------------------------------+
+| EXPLAIN                                         |
++-------------------------------------------------+
+| -> Nested loop inner join  (cost=1.40 rows=2)   |
+|     -> Table scan on t1  (cost=0.45 rows=2)     |
+|     -> Index lookup on t2  (cost=0.35 rows=1)   |
++-------------------------------------------------+
+1 row in set
+";
+    let mut app = App::new(80, 12);
+    feed(&mut app, input);
+    app.on_key(key('E'));
+    let popup = app.frame().popup.expect("explain popup");
+    assert!(popup.title.contains("EXPLAIN"));
+    // The root join (cost 1.40) is the costly step.
+    assert!(popup.emphasis[0]);
+    assert!(!popup.emphasis[1]);
+}
+
+#[test]
+fn explain_tree_from_batch_single_cell() {
+    // Batch mode packs the whole tree into one TSV cell with literal \n.
+    let input = "EXPLAIN\n-> Nested loop  (cost=9.9 rows=2)\\n    -> Table scan on t  (cost=0.5 rows=2)\\n\n";
+    let mut app = App::new(100, 12);
+    feed(&mut app, input);
+    app.on_key(key('E'));
+    let popup = app.frame().popup.expect("explain popup");
+    // The single cell was split back into tree lines.
+    assert!(popup.lines.iter().any(|l| l.contains("Nested loop")));
+    assert!(popup.lines.iter().any(|l| l.contains("Table scan")));
+    assert!(popup.emphasis[0]); // root is costliest
+}
+
+#[test]
+fn explain_refused_on_non_plan() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key('E'));
+    assert!(app.frame().popup.is_none());
+    assert!(app.frame().status.contains("no EXPLAIN"));
+}
+
+#[test]
 fn resize_changes_page_size() {
     let mut app = App::new(80, 24);
     feed(&mut app, TABLE);

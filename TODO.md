@@ -81,7 +81,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Export to clipboard via OSC 52 (shift + format letter)
 - [x] Mark two rows, field-by-field diff (`m` / `m`)
 - [x] Column stats: min/max, distinct, null count (`s` popup, current column)
-- [ ] Detect EXPLAIN / EXPLAIN ANALYZE → tree render, highlight costly steps
+- [x] Detect EXPLAIN / EXPLAIN ANALYZE → tree render, highlight costly steps (`E`)
 
 ## Release polish (last)
 - [ ] Single static binary (release profile already set: lto, strip)

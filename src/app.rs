@@ -7,6 +7,7 @@
 
 use crate::cell;
 use crate::diff;
+use crate::explain;
 use crate::export::{self, Format};
 use crate::keys::{self, Action, Cmd, SearchKey};
 use crate::parse::Event;
@@ -61,10 +62,24 @@ pub enum Effect {
     Clipboard { contents: String },
 }
 
-/// A centered overlay (stats, cell view, diff, …).
+/// A centered overlay (stats, cell view, diff, EXPLAIN tree, …).
 pub struct Popup {
     pub title: String,
     pub lines: Vec<String>,
+    /// Parallel to `lines`: which lines to emphasize (e.g. costly plan steps).
+    pub emphasis: Vec<bool>,
+}
+
+impl Popup {
+    /// A popup with no emphasized lines.
+    fn plain(title: impl Into<String>, lines: Vec<String>) -> Self {
+        let emphasis = vec![false; lines.len()];
+        Popup {
+            title: title.into(),
+            lines,
+            emphasis,
+        }
+    }
 }
 
 /// A frame ready to be drawn: a pinned header (tables only), body lines, a
@@ -260,6 +275,7 @@ impl App {
             Some(Cmd::ShowStats) => self.show_stats(),
             Some(Cmd::ViewCell) => self.view_cell(),
             Some(Cmd::MarkRow) => self.mark_row(),
+            Some(Cmd::ShowExplain) => self.show_explain(),
             None => {}
         }
         false
@@ -278,10 +294,7 @@ impl App {
                 cell::cell_view(s, self.width.saturating_sub(4).max(16))
             }
         };
-        self.popup = Some(Popup {
-            title: format!("cell · {col} [{kind}]"),
-            lines,
-        });
+        self.popup = Some(Popup::plain(format!("cell · {col} [{kind}]"), lines));
     }
 
     fn mark_row(&mut self) {
@@ -302,10 +315,10 @@ impl App {
                 Some(t) => diff::diff_rows(t, a, b),
                 None => return,
             };
-            self.popup = Some(Popup {
-                title: format!("diff · rows {} & {}", a + 1, b + 1),
+            self.popup = Some(Popup::plain(
+                format!("diff · rows {} & {}", a + 1, b + 1),
                 lines,
-            });
+            ));
             self.marks.clear();
         } else {
             self.message = Some(format!("marked row {} — mark another to diff", r + 1));
@@ -319,10 +332,56 @@ impl App {
             return;
         };
         let st = stats::column_stats(table, col);
+        self.popup = Some(Popup::plain(
+            format!("column stats · {}", st.column),
+            st.lines(),
+        ));
+    }
+
+    /// Detect an EXPLAIN tree plan in the current block and show it with the
+    /// costly steps highlighted.
+    fn show_explain(&mut self) {
+        let Some(lines) = self.plan_lines() else {
+            self.message = Some("no EXPLAIN tree plan detected (use EXPLAIN FORMAT=TREE)".into());
+            return;
+        };
+        let plan = explain::render(&lines);
         self.popup = Some(Popup {
-            title: format!("column stats · {}", st.column),
-            lines: st.lines(),
+            title: "EXPLAIN · costly steps highlighted".into(),
+            lines: plan.lines,
+            emphasis: plan.emphasis,
         });
+    }
+
+    /// Gather candidate EXPLAIN plan lines from the current block, if it looks
+    /// like a tree-format plan. Handles both the boxed form (one line per row)
+    /// and the batch form (the whole tree in one cell with `\n` escapes).
+    fn plan_lines(&self) -> Option<Vec<String>> {
+        let raw: Vec<String> = match self.blocks.get(self.cur) {
+            Some(Block::Table { table, .. }) => {
+                if table.ncols() != 1 {
+                    return None;
+                }
+                table.rows.iter().map(|r| r[0].text().to_string()).collect()
+            }
+            Some(Block::Text(lines)) => lines.clone(),
+            None => return None,
+        };
+        // Expand embedded newlines (literal `\n` in batch output, or real ones)
+        // and drop any leaked column-header label.
+        let mut lines: Vec<String> = raw
+            .iter()
+            .flat_map(|s| s.split("\\n").flat_map(|p| p.split('\n')))
+            .filter(|l| {
+                let t = l.trim();
+                !t.eq_ignore_ascii_case("EXPLAIN") && !t.eq_ignore_ascii_case("QUERY PLAN")
+            })
+            .map(str::to_string)
+            .collect();
+        while lines.last().is_some_and(|l| l.trim().is_empty()) {
+            lines.pop();
+        }
+        explain::looks_like_explain(&lines).then_some(lines)
     }
 
     /// Map an export-mode key to (format, to-clipboard?). Uppercase = clipboard.
@@ -643,6 +702,7 @@ impl App {
         let popup = self.popup.as_ref().map(|p| Popup {
             title: p.title.clone(),
             lines: p.lines.clone(),
+            emphasis: p.emphasis.clone(),
         });
 
         Frame {
