@@ -200,23 +200,27 @@ fn render_cell_text(cell: &Cell) -> &str {
 const SEP: &str = " │ ";
 const SEP_W: usize = 3;
 
-/// Decide which columns are visible and how much width each gets, honoring
-/// frozen columns, horizontal scroll, and the available width. The final
-/// visible column may be allotted less than its full width (and thus truncated).
-/// Returns `(column_index, allotted_width, is_last_frozen)`.
+/// Decide which columns are visible and how much width each gets, honoring the
+/// column display `order` (original indices), frozen columns, horizontal
+/// scroll, and the available width. The final visible column may be allotted
+/// less than its full width (and thus truncated).
+/// Returns `(original_column_index, allotted_width, is_last_frozen)`.
 fn visible_columns(
     widths: &[usize],
+    order: &[usize],
     frozen: usize,
     hscroll: usize,
     total_w: usize,
 ) -> Vec<(usize, usize, bool)> {
-    let n = widths.len();
+    let n = order.len();
     let frozen = frozen.min(n);
-    let order: Vec<usize> = (0..frozen).chain((frozen + hscroll)..n).collect();
+    // Display positions to show: the frozen prefix, then a scrolled window.
+    let positions: Vec<usize> = (0..frozen).chain((frozen + hscroll)..n).collect();
 
     let mut out = Vec::new();
     let mut used = 0usize;
-    for (i, &col) in order.iter().enumerate() {
+    for (i, &pos) in positions.iter().enumerate() {
+        let col = order[pos];
         let sep = if i == 0 { 0 } else { SEP_W };
         if used + sep >= total_w {
             break;
@@ -281,16 +285,18 @@ const NULL_SENTINEL: &str = "\u{0}NULL\u{0}";
 /// `area_w`/`area_h` are the width and height (in cells) available to the table,
 /// where the header consumes one of the `area_h` lines. `highlight_row` marks a
 /// data row index (e.g. the current search match) for the tui to emphasize.
+#[allow(clippy::too_many_arguments)] // explicit params keep this pure fn easy to test
 pub fn render(
     table: &Table,
     widths: &[usize],
+    order: &[usize],
     vp: &Viewport,
     area_w: usize,
     area_h: usize,
     highlight_row: Option<usize>,
     cursor_col: Option<usize>,
 ) -> Render {
-    let layout = visible_columns(widths, vp.frozen, vp.hscroll, area_w);
+    let layout = visible_columns(widths, order, vp.frozen, vp.hscroll, area_w);
 
     let header_cells = table.columns.clone();
     let header = build_line(&header_cells, &layout, true, cursor_col);
@@ -317,14 +323,16 @@ pub fn render(
     Render { header, rows }
 }
 
-/// The column indices currently visible for the given scroll state and width.
+/// The original column indices currently visible for the given order, scroll
+/// state and width.
 pub fn visible_column_indices(
     widths: &[usize],
+    order: &[usize],
     frozen: usize,
     hscroll: usize,
     area_w: usize,
 ) -> Vec<usize> {
-    visible_columns(widths, frozen, hscroll, area_w)
+    visible_columns(widths, order, frozen, hscroll, area_w)
         .into_iter()
         .map(|(col, _, _)| col)
         .collect()

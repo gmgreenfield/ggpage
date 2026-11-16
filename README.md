@@ -7,8 +7,23 @@ horizontal scrolling, and search — while streaming large result sets and stayi
 instant to start. Non-table input behaves like plain `less`; when stdout is not
 a terminal, input is copied through unchanged so it stays invisible in pipelines.
 
-> Status: **Phase 1 complete** (the must-haves below). Phase 2 differentiators
-> are in progress — see [TODO.md](TODO.md).
+> Status: **Phases 1 & 2 complete.** All must-haves plus the differentiators
+> below (column ops, cell JSON/hex view, export, row diff, column stats,
+> EXPLAIN-tree highlighting). Remaining work is release polish — see
+> [TODO.md](TODO.md).
+
+## Features (Phase 2)
+
+- **Column ops:** hide/restore, reorder, and resize columns; search within a
+  single column (`\`).
+- **Cell view (`v`):** pretty-prints JSON, hex-dumps binary/BLOB values, wraps
+  long text — all in a popup.
+- **Export (`x`):** CSV / Markdown / JSON / `INSERT` to a file or the clipboard
+  (OSC 52).
+- **Row diff (`m`):** mark two rows, compare them field by field.
+- **Column stats (`s`):** rows, nulls, distinct, min/max (numeric-aware).
+- **EXPLAIN (`E`):** renders `EXPLAIN FORMAT=TREE` / `EXPLAIN ANALYZE`,
+  highlighting the costly steps.
 
 ## Features (Phase 1)
 
@@ -91,6 +106,9 @@ export PAGER=ggpage
 | `v` | view current cell (pretty JSON, hex for binary, or text) |
 | `m` | mark current row; mark a second row to diff them |
 | `E` | render EXPLAIN FORMAT=TREE / ANALYZE, highlighting costly steps |
+| `H` / `A` | hide current column / restore all columns |
+| `{` / `}` | move current column left / right |
+| `(` / `)` | narrow / widen current column |
 | `/` `?` | search forward / backward |
 | `\` | search within the current column only |
 | `n` / `N` | next / previous match |

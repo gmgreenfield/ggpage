@@ -427,6 +427,64 @@ fn explain_refused_on_non_plan() {
 }
 
 #[test]
+fn hide_and_unhide_column() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE); // columns: id, name
+    // cursor on id; hide it.
+    app.on_key(key('H'));
+    let header = app.frame().header.unwrap().plain();
+    assert!(!header.contains("id"));
+    assert!(header.contains("name"));
+    // restore.
+    app.on_key(key('A'));
+    assert!(app.frame().header.unwrap().plain().contains("id"));
+}
+
+#[test]
+fn cannot_hide_last_column() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE); // two columns
+    app.on_key(key('H')); // hide one → one left
+    app.on_key(key('H')); // refuse to hide the last
+    assert!(app.frame().status.contains("cannot hide the last"));
+}
+
+#[test]
+fn move_column_reorders_header() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE); // id, name
+    app.on_key(key('}')); // move id right → name, id
+    assert!(
+        app.frame()
+            .header
+            .unwrap()
+            .plain()
+            .trim_start()
+            .starts_with("name")
+    );
+    app.on_key(key('{')); // move back
+    assert!(
+        app.frame()
+            .header
+            .unwrap()
+            .plain()
+            .trim_start()
+            .starts_with("id")
+    );
+}
+
+#[test]
+fn resize_column_sets_width() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key(')')); // widen id
+    assert!(app.frame().status.contains("column width"));
+    // id header, naturally width 2, is now padded wider.
+    let first = &app.frame().header.unwrap().spans[0].text;
+    assert!(first.len() > 2);
+}
+
+#[test]
 fn resize_changes_page_size() {
     let mut app = App::new(80, 24);
     feed(&mut app, TABLE);

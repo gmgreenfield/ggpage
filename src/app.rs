@@ -116,8 +116,14 @@ pub struct App {
     cap: usize,
     /// A side effect awaiting execution by the `tui` layer.
     pending_effect: Option<Effect>,
-    /// Current column (cursor) within a table block.
+    /// Current column cursor as a *display position* into `col_order`.
     cursor_col: usize,
+    /// Display order of visible original column indices.
+    col_order: Vec<usize>,
+    /// Hidden original column indices (preserved so they can be restored).
+    col_hidden: Vec<usize>,
+    /// Per-original-column fixed width override (resize).
+    col_width: Vec<Option<usize>>,
     /// An open overlay, shown until the next key dismisses it.
     popup: Option<Popup>,
 }
@@ -146,6 +152,9 @@ impl App {
             cap: DEFAULT_CHOP_CAP,
             pending_effect: None,
             cursor_col: 0,
+            col_order: Vec::new(),
+            col_hidden: Vec::new(),
+            col_width: Vec::new(),
             popup: None,
         }
     }
@@ -182,6 +191,11 @@ impl App {
             Event::StartTable { columns } => {
                 let mut widths = Widths::new(columns.len());
                 widths.observe_header(&columns);
+                // Initialize column display state for the first table.
+                if self.col_order.is_empty() {
+                    self.col_order = (0..columns.len()).collect();
+                    self.col_width = vec![None; columns.len()];
+                }
                 self.blocks.push(Block::Table {
                     table: Table::new(columns),
                     widths,
@@ -228,11 +242,22 @@ impl App {
         }
     }
 
+    /// `(row count, column count)` of the current block. For tables the column
+    /// count is the number of *visible* columns (after hide/reorder).
     fn extent(&self) -> (usize, usize) {
         match self.blocks.get(self.cur) {
-            Some(b) => (b.nrows(), b.ncols()),
+            Some(Block::Table { table, .. }) => (table.nrows(), self.col_order.len()),
+            Some(Block::Text(lines)) => (
+                lines.len(),
+                lines.iter().map(|l| display_width(l)).max().unwrap_or(0),
+            ),
             None => (0, 0),
         }
+    }
+
+    /// The original column index at the current cursor display position.
+    fn cur_orig(&self) -> usize {
+        self.col_order.get(self.cursor_col).copied().unwrap_or(0)
     }
 
     // --- key handling ------------------------------------------------------
@@ -276,13 +301,19 @@ impl App {
             Some(Cmd::ViewCell) => self.view_cell(),
             Some(Cmd::MarkRow) => self.mark_row(),
             Some(Cmd::ShowExplain) => self.show_explain(),
+            Some(Cmd::HideColumn) => self.hide_column(),
+            Some(Cmd::UnhideColumns) => self.unhide_all(),
+            Some(Cmd::MoveColumnLeft) => self.move_column(-1),
+            Some(Cmd::MoveColumnRight) => self.move_column(1),
+            Some(Cmd::WidenColumn) => self.resize_column(4),
+            Some(Cmd::NarrowColumn) => self.resize_column(-4),
             None => {}
         }
         false
     }
 
     fn view_cell(&mut self) {
-        let (r, c) = (self.cursor_row, self.cursor_col);
+        let (r, c) = (self.cursor_row, self.cur_orig());
         let Some(table) = self.current_table() else {
             self.message = Some("view: current block is not a table".into());
             return;
@@ -326,7 +357,7 @@ impl App {
     }
 
     fn show_stats(&mut self) {
-        let col = self.cursor_col;
+        let col = self.cur_orig();
         let Some(table) = self.current_table() else {
             self.message = Some("stats: current block is not a table".into());
             return;
@@ -464,7 +495,7 @@ impl App {
                 {
                     self.query = q;
                     self.search_forward = fwd;
-                    self.search_col = if col { Some(self.cursor_col) } else { None };
+                    self.search_col = if col { Some(self.cur_orig()) } else { None };
                     self.search_from(self.cursor_row, fwd);
                 }
             }
@@ -557,23 +588,31 @@ impl App {
         }
     }
 
-    /// Adjust horizontal scroll so the given column is visible. Frozen columns
-    /// are always visible and need no scrolling.
-    fn reveal_col(&mut self, col: usize) {
-        let (_, ncols) = self.extent();
-        let frozen = self.vp.frozen.min(ncols);
-        if col < frozen {
+    /// Adjust horizontal scroll so the column at display position `pos` is
+    /// visible. Frozen columns are always visible and need no scrolling.
+    fn reveal_col(&mut self, pos: usize) {
+        let frozen = self.vp.frozen.min(self.col_order.len());
+        if pos < frozen {
             return;
         }
-        let scroll_idx = col - frozen;
+        let scroll_idx = pos - frozen;
         if scroll_idx < self.vp.hscroll {
             self.vp.hscroll = scroll_idx;
             return;
         }
+        let Some(target) = self.col_order.get(pos).copied() else {
+            return;
+        };
         let eff = self.current_widths_eff();
         while self.vp.hscroll < scroll_idx {
-            let visible = view::visible_column_indices(&eff, frozen, self.vp.hscroll, self.width);
-            if visible.contains(&col) {
+            let visible = view::visible_column_indices(
+                &eff,
+                &self.col_order,
+                frozen,
+                self.vp.hscroll,
+                self.width,
+            );
+            if visible.contains(&target) {
                 break;
             }
             self.vp.hscroll += 1;
@@ -582,9 +621,78 @@ impl App {
 
     fn current_widths_eff(&self) -> Vec<usize> {
         match self.blocks.get(self.cur) {
-            Some(Block::Table { widths, .. }) => widths.effective(self.vp.chop, self.cap),
+            Some(Block::Table { widths, .. }) => {
+                let mut eff = widths.effective(self.vp.chop, self.cap);
+                // Apply per-column resize overrides.
+                for (orig, over) in self.col_width.iter().enumerate() {
+                    if let Some(w) = over
+                        && orig < eff.len()
+                    {
+                        eff[orig] = *w;
+                    }
+                }
+                eff
+            }
             _ => Vec::new(),
         }
+    }
+
+    // --- column operations -------------------------------------------------
+
+    fn hide_column(&mut self) {
+        if !self.is_table() || self.col_order.len() <= 1 {
+            self.message = Some("cannot hide the last visible column".into());
+            return;
+        }
+        let orig = self.col_order.remove(self.cursor_col);
+        self.col_hidden.push(orig);
+        if self.cursor_col >= self.col_order.len() {
+            self.cursor_col = self.col_order.len() - 1;
+        }
+        self.reveal_col(self.cursor_col);
+        self.message = Some(format!("hid column ({} hidden)", self.col_hidden.len()));
+    }
+
+    fn unhide_all(&mut self) {
+        let Some(table) = self.current_table() else {
+            return;
+        };
+        if self.col_hidden.is_empty() {
+            return;
+        }
+        // Restore natural order with all columns visible.
+        self.col_order = (0..table.ncols()).collect();
+        self.col_hidden.clear();
+        self.cursor_col = self.cursor_col.min(self.col_order.len() - 1);
+        self.message = Some("restored all columns".into());
+    }
+
+    fn move_column(&mut self, dir: isize) {
+        if !self.is_table() {
+            return;
+        }
+        let from = self.cursor_col;
+        let to = from as isize + dir;
+        if to < 0 || to as usize >= self.col_order.len() {
+            return;
+        }
+        let to = to as usize;
+        self.col_order.swap(from, to);
+        self.cursor_col = to;
+        self.reveal_col(to);
+    }
+
+    fn resize_column(&mut self, delta: isize) {
+        if !self.is_table() {
+            return;
+        }
+        let orig = self.cur_orig();
+        let base = self.current_widths_eff().get(orig).copied().unwrap_or(8);
+        let new = (base as isize + delta).clamp(1, 400) as usize;
+        if orig < self.col_width.len() {
+            self.col_width[orig] = Some(new);
+        }
+        self.message = Some(format!("column width = {new}"));
     }
 
     // --- search ------------------------------------------------------------
@@ -668,10 +776,19 @@ impl App {
             None
         };
         let (header, body) = match self.blocks.get(self.cur) {
-            Some(Block::Table { table, widths }) => {
-                let eff = widths.effective(self.vp.chop, self.cap);
-                let cursor = Some(self.cursor_col.min(table.ncols().saturating_sub(1)));
-                let r = view::render(table, &eff, &self.vp, self.width, body_h, hl, cursor);
+            Some(Block::Table { table, .. }) => {
+                let eff = self.current_widths_eff();
+                let cursor = Some(self.cur_orig());
+                let r = view::render(
+                    table,
+                    &eff,
+                    &self.col_order,
+                    &self.vp,
+                    self.width,
+                    body_h,
+                    hl,
+                    cursor,
+                );
                 (Some(r.header), r.rows)
             }
             Some(Block::Text(lines)) => (None, self.render_text(lines, body_h, hl)),

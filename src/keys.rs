@@ -37,7 +37,10 @@ pub enum Cmd {
     Do(Action),
     /// Enter search-input mode; `forward` is `/` vs `?`. `column` restricts the
     /// search to the current column (`\`).
-    BeginSearch { forward: bool, column: bool },
+    BeginSearch {
+        forward: bool,
+        column: bool,
+    },
     /// Enter option mode (a `-` was pressed, as in `less -S`).
     BeginOption,
     /// Enter export mode (`x`): the next key chooses the format/destination.
@@ -50,6 +53,16 @@ pub enum Cmd {
     MarkRow,
     /// Render an EXPLAIN tree plan with costly steps highlighted (`E`).
     ShowExplain,
+    /// Hide the current column (`H`).
+    HideColumn,
+    /// Restore all hidden columns (`A`).
+    UnhideColumns,
+    /// Move the current column left/right (`{` / `}`).
+    MoveColumnLeft,
+    MoveColumnRight,
+    /// Widen/narrow the current column (`)` / `(`).
+    WidenColumn,
+    NarrowColumn,
 }
 
 /// Map a normal-mode key event to a command, or `None` if unbound.
@@ -98,6 +111,13 @@ pub fn normal(ev: KeyEvent) -> Option<Cmd> {
         Char('v') => Cmd::ViewCell,
         Char('m') => Cmd::MarkRow,
         Char('E') => Cmd::ShowExplain,
+
+        Char('H') => Cmd::HideColumn,
+        Char('A') => Cmd::UnhideColumns,
+        Char('{') => Cmd::MoveColumnLeft,
+        Char('}') => Cmd::MoveColumnRight,
+        Char(')') => Cmd::WidenColumn,
+        Char('(') => Cmd::NarrowColumn,
 
         _ => return None,
     };
@@ -232,6 +252,12 @@ mod tests {
         assert_eq!(normal(key('v')), Some(Cmd::ViewCell));
         assert_eq!(normal(key('m')), Some(Cmd::MarkRow));
         assert_eq!(normal(key('E')), Some(Cmd::ShowExplain));
+        assert_eq!(normal(key('H')), Some(Cmd::HideColumn));
+        assert_eq!(normal(key('A')), Some(Cmd::UnhideColumns));
+        assert_eq!(normal(key('{')), Some(Cmd::MoveColumnLeft));
+        assert_eq!(normal(key('}')), Some(Cmd::MoveColumnRight));
+        assert_eq!(normal(key(')')), Some(Cmd::WidenColumn));
+        assert_eq!(normal(key('(')), Some(Cmd::NarrowColumn));
     }
 
     #[test]
