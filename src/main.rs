@@ -4,7 +4,9 @@
 #![allow(dead_code)]
 
 mod app;
+mod cell;
 mod clip;
+mod diff;
 mod export;
 mod keys;
 mod parse;

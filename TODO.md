@@ -74,12 +74,12 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Column cursor (h/l/←/→) + reveal-scroll, highlighted header (foundation)
 - [ ] Column ops: hide / reorder / resize
 - [ ] Search within a single column
-- [ ] Pretty JSON popup for a cell
+- [x] Pretty JSON popup for a cell (`v`, smart JSON/hex/text)
 - [x] NULL vs '' distinct rendering (model + view distinguish)
-- [ ] BLOB / hex display
+- [x] BLOB / hex display (`v` falls back to hex dump for binary)
 - [x] Export view: CSV / Markdown / JSON / INSERT → file (`x`)
 - [x] Export to clipboard via OSC 52 (shift + format letter)
-- [ ] Mark two rows, field-by-field diff
+- [x] Mark two rows, field-by-field diff (`m` / `m`)
 - [x] Column stats: min/max, distinct, null count (`s` popup, current column)
 - [ ] Detect EXPLAIN / EXPLAIN ANALYZE → tree render, highlight costly steps
 

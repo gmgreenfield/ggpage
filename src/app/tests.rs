@@ -57,16 +57,42 @@ fn rows_surface_incrementally() {
 }
 
 #[test]
-fn vertical_navigation() {
+fn vertical_navigation_moves_row_cursor() {
     let mut app = App::new(80, 5); // body_h=4, page=3 (header pinned)
     feed(&mut app, TABLE);
+    // Row cursor starts on row 0 (id 1), highlighted.
+    let hl = |app: &mut App| {
+        app.frame()
+            .body
+            .iter()
+            .find(|l| l.highlight)
+            .map(|l| l.plain().trim_start().chars().next().unwrap())
+    };
+    assert_eq!(hl(&mut app), Some('1'));
     app.on_key(key('j'));
-    assert!(app.frame().body[0].plain().starts_with("2 "));
+    assert_eq!(hl(&mut app), Some('2')); // cursor moved; row 1 highlighted
     app.on_key(key('G'));
-    // last page: top = 5-3 = 2 => first visible row id 3
-    assert!(app.frame().body[0].plain().starts_with("3 "));
+    assert_eq!(hl(&mut app), Some('5')); // bottom: last row highlighted
     app.on_key(key('g'));
-    assert!(app.frame().body[0].plain().starts_with("1 "));
+    assert_eq!(hl(&mut app), Some('1')); // top again
+    assert_eq!(app.cursor_row_for_test(), 0);
+}
+
+#[test]
+fn row_cursor_scrolls_viewport_when_leaving_page() {
+    let mut app = App::new(80, 5); // page = 3 data rows
+    feed(&mut app, TABLE);
+    for _ in 0..4 {
+        app.on_key(key('j')); // cursor 0 -> 4
+    }
+    // Cursor on last row; viewport must have scrolled so it's visible.
+    assert_eq!(app.cursor_row_for_test(), 4);
+    assert!(
+        app.frame()
+            .body
+            .iter()
+            .any(|l| l.highlight && l.plain().starts_with("5 "))
+    );
 }
 
 #[test]
@@ -177,12 +203,12 @@ fn next_and_prev_match_cycle() {
     app.on_key(key('/'));
     app.on_key(key('a'));
     app.on_key(code(KeyCode::Enter));
-    let first = app.match_row_for_test();
+    let first = app.cursor_row_for_test();
     app.on_key(key('n'));
-    let second = app.match_row_for_test();
+    let second = app.cursor_row_for_test();
     assert_ne!(first, second);
     app.on_key(key('N'));
-    assert_eq!(app.match_row_for_test(), first);
+    assert_eq!(app.cursor_row_for_test(), first);
 }
 
 #[test]
@@ -261,6 +287,65 @@ fn export_refused_on_text_block() {
     app.on_key(key('x'));
     assert!(app.take_effect().is_none());
     assert!(app.frame().status.contains("not a table"));
+}
+
+#[test]
+fn view_cell_shows_value_popup() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(code(KeyCode::Right)); // cursor on "name"
+    app.on_key(key('v'));
+    let f = app.frame();
+    let popup = f.popup.expect("cell popup");
+    assert!(popup.title.contains("name"));
+    assert!(popup.lines.iter().any(|l| l.contains("alice")));
+}
+
+#[test]
+fn view_cell_pretty_prints_json() {
+    let input = "\
++---------------+
+| data          |
++---------------+
+| {\"a\":1,\"b\":2} |
++---------------+
+1 row in set
+";
+    let mut app = App::new(80, 12);
+    feed(&mut app, input);
+    app.on_key(key('v'));
+    let popup = app.frame().popup.expect("cell popup");
+    assert!(popup.title.contains("[json]"));
+    assert!(popup.lines.iter().any(|l| l.trim() == "\"a\": 1,"));
+}
+
+#[test]
+fn mark_two_rows_produces_diff_popup() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key('m')); // mark row 0 (alice)
+    assert!(app.frame().popup.is_none());
+    assert!(app.frame().status.contains("marked row 1"));
+    app.on_key(key('j')); // move to row 1 (bob)
+    app.on_key(key('m')); // mark row 1 -> diff
+    let popup = app.frame().popup.expect("diff popup");
+    assert!(popup.title.contains("diff"));
+    assert!(
+        popup
+            .lines
+            .iter()
+            .any(|l| l.contains("alice") && l.contains("bob"))
+    );
+}
+
+#[test]
+fn marking_same_row_twice_unmarks() {
+    let mut app = App::new(80, 10);
+    feed(&mut app, TABLE);
+    app.on_key(key('m'));
+    app.on_key(key('m')); // same row -> unmark
+    assert!(app.frame().status.contains("unmarked"));
+    assert!(app.frame().popup.is_none());
 }
 
 #[test]

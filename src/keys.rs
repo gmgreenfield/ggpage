@@ -43,6 +43,10 @@ pub enum Cmd {
     BeginExport,
     /// Show column statistics for the current column (`s`).
     ShowStats,
+    /// View the current cell (pretty JSON / hex / text) in a popup (`v`).
+    ViewCell,
+    /// Mark the current row; marking a second row shows a diff (`m`).
+    MarkRow,
 }
 
 /// Map a normal-mode key event to a command, or `None` if unbound.
@@ -78,6 +82,8 @@ pub fn normal(ev: KeyEvent) -> Option<Cmd> {
         Char('-') => Cmd::BeginOption,
         Char('x') => Cmd::BeginExport,
         Char('s') => Cmd::ShowStats,
+        Char('v') => Cmd::ViewCell,
+        Char('m') => Cmd::MarkRow,
 
         _ => return None,
     };
@@ -190,6 +196,8 @@ mod tests {
         assert_eq!(normal(key('-')), Some(Cmd::BeginOption));
         assert_eq!(normal(key('x')), Some(Cmd::BeginExport));
         assert_eq!(normal(key('s')), Some(Cmd::ShowStats));
+        assert_eq!(normal(key('v')), Some(Cmd::ViewCell));
+        assert_eq!(normal(key('m')), Some(Cmd::MarkRow));
     }
 
     #[test]

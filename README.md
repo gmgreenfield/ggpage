@@ -88,6 +88,8 @@ export PAGER=ggpage
 | `h` / `l`, `←` / `→` | move column cursor left / right |
 | `<` / `>` | first / last column |
 | `s` | column stats popup (rows, nulls, distinct, min/max) |
+| `v` | view current cell (pretty JSON, hex for binary, or text) |
+| `m` | mark current row; mark a second row to diff them |
 | `/` `?` | search forward / backward |
 | `n` / `N` | next / previous match |
 | `-S` | toggle column chopping |

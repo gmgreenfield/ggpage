@@ -5,6 +5,8 @@
 //! actions via [`keys`], and produces a [`Frame`] of styled lines for the thin
 //! `tui` layer to draw. It never performs I/O.
 
+use crate::cell;
+use crate::diff;
 use crate::export::{self, Format};
 use crate::keys::{self, Action, Cmd, SearchKey};
 use crate::parse::Event;
@@ -85,8 +87,11 @@ pub struct App {
     /// Last submitted search query and direction.
     query: String,
     search_forward: bool,
-    /// Row index of the current match in the current block.
-    match_row: Option<usize>,
+    /// Current row (cursor) within the current block; highlighted and used by
+    /// cell view, mark/diff, and search landing.
+    cursor_row: usize,
+    /// Rows marked for diffing (at most two).
+    marks: Vec<usize>,
     /// Transient message (e.g. "pattern not found").
     message: Option<String>,
     cap: usize,
@@ -115,7 +120,8 @@ impl App {
             height,
             query: String::new(),
             search_forward: true,
-            match_row: None,
+            cursor_row: 0,
+            marks: Vec::new(),
             message: None,
             cap: DEFAULT_CHOP_CAP,
             pending_effect: None,
@@ -246,9 +252,58 @@ impl App {
                 }
             }
             Some(Cmd::ShowStats) => self.show_stats(),
+            Some(Cmd::ViewCell) => self.view_cell(),
+            Some(Cmd::MarkRow) => self.mark_row(),
             None => {}
         }
         false
+    }
+
+    fn view_cell(&mut self) {
+        let (r, c) = (self.cursor_row, self.cursor_col);
+        let Some(table) = self.current_table() else {
+            self.message = Some("view: current block is not a table".into());
+            return;
+        };
+        let col = table.columns.get(c).cloned().unwrap_or_default();
+        let (kind, lines) = match table.rows.get(r).and_then(|row| row.get(c)) {
+            Some(crate::table::Cell::Null) | None => ("null", vec!["NULL".to_string()]),
+            Some(crate::table::Cell::Text(s)) => {
+                cell::cell_view(s, self.width.saturating_sub(4).max(16))
+            }
+        };
+        self.popup = Some(Popup {
+            title: format!("cell · {col} [{kind}]"),
+            lines,
+        });
+    }
+
+    fn mark_row(&mut self) {
+        if self.current_table().is_none() {
+            self.message = Some("mark: current block is not a table".into());
+            return;
+        }
+        let r = self.cursor_row;
+        if let Some(pos) = self.marks.iter().position(|&m| m == r) {
+            self.marks.remove(pos);
+            self.message = Some(format!("unmarked row {}", r + 1));
+            return;
+        }
+        self.marks.push(r);
+        if self.marks.len() == 2 {
+            let (a, b) = (self.marks[0], self.marks[1]);
+            let lines = match self.current_table() {
+                Some(t) => diff::diff_rows(t, a, b),
+                None => return,
+            };
+            self.popup = Some(Popup {
+                title: format!("diff · rows {} & {}", a + 1, b + 1),
+                lines,
+            });
+            self.marks.clear();
+        } else {
+            self.message = Some(format!("marked row {} — mark another to diff", r + 1));
+        }
     }
 
     fn show_stats(&mut self) {
@@ -340,7 +395,7 @@ impl App {
                 {
                     self.query = q;
                     self.search_forward = fwd;
-                    self.search_from(self.vp.top, fwd);
+                    self.search_from(self.cursor_row, fwd);
                 }
             }
             Some(SearchKey::Cancel) => self.mode = Mode::Normal,
@@ -362,14 +417,20 @@ impl App {
         let page = self.page();
         match a {
             Action::Quit => return true,
-            Action::LineDown => self.vp.scroll_v(1, nrows, page),
-            Action::LineUp => self.vp.scroll_v(-1, nrows, page),
-            Action::HalfPageDown => self.vp.scroll_v((page / 2).max(1) as isize, nrows, page),
-            Action::HalfPageUp => self.vp.scroll_v(-((page / 2).max(1) as isize), nrows, page),
-            Action::PageDown => self.vp.scroll_v(page as isize, nrows, page),
-            Action::PageUp => self.vp.scroll_v(-(page as isize), nrows, page),
-            Action::GotoTop => self.vp.goto_top(),
-            Action::GotoBottom => self.vp.goto_bottom(nrows, page),
+            Action::LineDown => self.move_row(1, nrows),
+            Action::LineUp => self.move_row(-1, nrows),
+            Action::HalfPageDown => self.move_row((page / 2).max(1) as isize, nrows),
+            Action::HalfPageUp => self.move_row(-((page / 2).max(1) as isize), nrows),
+            Action::PageDown => self.move_row(page as isize, nrows),
+            Action::PageUp => self.move_row(-(page as isize), nrows),
+            Action::GotoTop => {
+                self.cursor_row = 0;
+                self.vp.goto_top();
+            }
+            Action::GotoBottom => {
+                self.cursor_row = nrows.saturating_sub(1);
+                self.vp.goto_bottom(nrows, page);
+            }
             Action::ColLeft => self.cursor_move(-1, ncols),
             Action::ColRight => self.cursor_move(1, ncols),
             Action::ColHome => self.cursor_home(),
@@ -379,6 +440,17 @@ impl App {
             Action::PrevMatch => self.repeat_search(!self.search_forward),
         }
         false
+    }
+
+    /// Move the row cursor by `delta`, clamped, and scroll to keep it visible.
+    fn move_row(&mut self, delta: isize, nrows: usize) {
+        if nrows == 0 {
+            return;
+        }
+        let new = (self.cursor_row as isize + delta).clamp(0, nrows as isize - 1) as usize;
+        self.cursor_row = new;
+        let page = self.page();
+        self.vp.reveal_row(new, nrows, page);
     }
 
     /// Move the column cursor (tables) or scroll text horizontally.
@@ -455,11 +527,11 @@ impl App {
         if nrows == 0 {
             return;
         }
-        // Start strictly after/before the current match (wrapping).
-        let start = match self.match_row {
-            Some(r) if forward => (r + 1) % nrows,
-            Some(r) => (r + nrows - 1) % nrows,
-            None => self.vp.top,
+        // Start strictly after/before the current row (wrapping).
+        let start = if forward {
+            (self.cursor_row + 1) % nrows
+        } else {
+            (self.cursor_row + nrows - 1) % nrows
         };
         self.search_from(start, forward);
     }
@@ -483,12 +555,11 @@ impl App {
         });
         match found {
             Some(idx) => {
-                self.match_row = Some(idx);
+                self.cursor_row = idx;
                 let page = self.page();
                 self.vp.reveal_row(idx, nrows, page);
             }
             None => {
-                self.match_row = None;
                 self.message = Some(format!("pattern not found: {}", self.query));
             }
         }
@@ -518,22 +589,19 @@ impl App {
 
     pub fn frame(&self) -> Frame {
         let body_h = self.body_h();
+        let hl = if self.extent().0 > 0 {
+            Some(self.cursor_row)
+        } else {
+            None
+        };
         let (header, body) = match self.blocks.get(self.cur) {
             Some(Block::Table { table, widths }) => {
                 let eff = widths.effective(self.vp.chop, self.cap);
                 let cursor = Some(self.cursor_col.min(table.ncols().saturating_sub(1)));
-                let r = view::render(
-                    table,
-                    &eff,
-                    &self.vp,
-                    self.width,
-                    body_h,
-                    self.match_row,
-                    cursor,
-                );
+                let r = view::render(table, &eff, &self.vp, self.width, body_h, hl, cursor);
                 (Some(r.header), r.rows)
             }
-            Some(Block::Text(lines)) => (None, self.render_text(lines, body_h)),
+            Some(Block::Text(lines)) => (None, self.render_text(lines, body_h, hl)),
             None => (None, Vec::new()),
         };
 
@@ -561,7 +629,7 @@ impl App {
         }
     }
 
-    fn render_text(&self, lines: &[String], body_h: usize) -> Vec<RenderLine> {
+    fn render_text(&self, lines: &[String], body_h: usize, hl: Option<usize>) -> Vec<RenderLine> {
         lines
             .iter()
             .enumerate()
@@ -572,7 +640,7 @@ impl App {
                     text: slice_width(line, self.vp.hscroll, self.width),
                     kind: SpanKind::Data,
                 }],
-                highlight: self.match_row == Some(i),
+                highlight: hl == Some(i),
             })
             .collect()
     }
@@ -606,6 +674,9 @@ impl App {
         if !self.query.is_empty() {
             s.push_str(&format!("  /{}", self.query));
         }
+        if let Some(&m) = self.marks.first() {
+            s.push_str(&format!("  mark:{}", m + 1));
+        }
         s.push_str(if at_end { "  (END)" } else { "" });
         pad_to_width(&s, self.width)
     }
@@ -613,8 +684,8 @@ impl App {
 
 #[cfg(test)]
 impl App {
-    fn match_row_for_test(&self) -> Option<usize> {
-        self.match_row
+    fn cursor_row_for_test(&self) -> usize {
+        self.cursor_row
     }
 }
 
