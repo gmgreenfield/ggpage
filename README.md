@@ -7,9 +7,7 @@ horizontal scrolling, and search — while streaming large result sets and stayi
 instant to start. Non-table input behaves like plain `less`; when stdout is not
 a terminal, input is copied through unchanged so it stays invisible in pipelines.
 
-<!-- Demo GIF: run `vhs demo.tape` to generate demo.gif, then uncomment:
 ![ggpage demo](demo.gif)
--->
 
 > Status: **Phases 1 & 2 complete.** All must-haves plus the differentiators
 > below (column ops, cell JSON/hex view, export, row diff, column stats,
