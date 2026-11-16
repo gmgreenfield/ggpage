@@ -1,0 +1,13 @@
++----+----------+----------------+---------------------+-------------------------------------+
+| id | name     | country        | email               | meta                                |
++----+----------+----------------+---------------------+-------------------------------------+
+|  1 | alice    | United States  | alice@example.com   | {"role":"admin","theme":"dark"}     |
+|  2 | bob      | Canada         |                     | {"role":"user","age":25}            |
+|  3 | carol    | 日本           | NULL                | {"role":"user","tags":["vip"]}      |
+|  4 | dave     | Deutschland    | dave@example.com    | {"active":false,"flags":{"a":1}}    |
+|  5 | erin     | France         | erin@example.com    | {"role":"user","nested":{"b":[2,3]}}|
+|  6 | frank    | Brasil         | frank@example.com   | {"role":"user","age":38}            |
+|  7 | grace    | España         | NULL                | NULL                                |
+|  8 | judy     | 中国           | judy@example.com    | {"role":"user","langs":["zh","en"]} |
++----+----------+----------------+---------------------+-------------------------------------+
+8 rows in set (0.00 sec)

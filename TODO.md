@@ -84,8 +84,9 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Detect EXPLAIN / EXPLAIN ANALYZE → tree render, highlight costly steps (`E`)
 
 ## Release polish (last)
-- [ ] Single static binary (release profile already set: lto, strip)
-- [ ] goreleaser-equivalent: cargo-dist or release workflow
-- [ ] Homebrew tap
-- [ ] README demo GIF (vhs)
-- [ ] One-line setup for mysql / psql / mycli
+- [x] Single static binary (release profile: lto, strip, panic=abort)
+- [x] Release workflow: tag `v*` → build macOS/Linux x64+arm64, upload + checksums
+- [ ] Homebrew tap (skipped per request)
+- [x] Demo GIF via vhs (`demo.tape` + `demo/users.txt`; run `vhs demo.tape`)
+- [x] One-line setup for mysql / psql / mycli (README)
+- [x] LICENSE (MIT)

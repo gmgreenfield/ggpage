@@ -7,6 +7,10 @@ horizontal scrolling, and search — while streaming large result sets and stayi
 instant to start. Non-table input behaves like plain `less`; when stdout is not
 a terminal, input is copied through unchanged so it stays invisible in pipelines.
 
+<!-- Demo GIF: run `vhs demo.tape` to generate demo.gif, then uncomment:
+![ggpage demo](demo.gif)
+-->
+
 > Status: **Phases 1 & 2 complete.** All must-haves plus the differentiators
 > below (column ops, cell JSON/hex view, export, row diff, column stats,
 > EXPLAIN-tree highlighting). Remaining work is release polish — see
@@ -34,21 +38,29 @@ a terminal, input is copied through unchanged so it stays invisible in pipelines
   - multiple result sets in one stream, with `N rows in set` / `Query OK` /
     `Empty set` footers preserved
 - **Pinned header & frozen first column(s)** that stay put while you scroll.
-- **`less` keybindings:** `j`/`k`, `space`/`b`, `d`/`u`, `g`/`G`, `/` `?` `n`
-  `N`, arrow keys, `PageUp`/`PageDown`, `Home`/`End`, `-S` to toggle column
-  chopping, `q` to quit.
+- **`less` keybindings:** `j`/`k`, `space`/`b`, `d`/`u`, `g`/`G`, `/` `n` `N`,
+  arrow keys, `PageUp`/`PageDown`, `Home`/`End`, `-S` to toggle column
+  chopping, `q` to quit (`?` shows all keys).
 - **Streaming:** renders while reading, never blocks on EOF, bounded memory.
 - **Correct Unicode width, ANSI-escape handling, and live terminal resize.**
 - **NULL is shown distinctly from the empty string.**
 
 ## Install
 
+**Prebuilt binaries:** download the archive for your platform from the
+[latest release](https://github.com/gmgreenfield/ggpage/releases/latest)
+(macOS arm64/x64, Linux x64/arm64), extract it, and put `ggpage` on your `PATH`.
+
+**From source** (requires a recent Rust toolchain):
 ```sh
-# From source (requires a recent Rust toolchain)
 cargo install --path .
 # or
 cargo build --release   # binary at target/release/ggpage
 ```
+
+Releases are produced automatically: pushing a `vX.Y.Z` tag runs the release
+workflow, which builds the static binaries and attaches them (with SHA-256
+checksums) to the GitHub Release.
 
 ## Usage
 
@@ -135,6 +147,16 @@ cargo fmt
 Architecture and conventions live in [CLAUDE.md](CLAUDE.md). The terminal layer
 is deliberately thin: all parsing, layout, scrolling, search and key logic are
 pure and unit-tested; rendering is verified with ratatui's `TestBackend`.
+
+### Regenerating the demo GIF
+
+The GIF is driven by [`demo.tape`](demo.tape) against a self-contained sample
+file (no database required). With [vhs](https://github.com/charmbracelet/vhs)
+installed:
+```sh
+cargo build --release
+vhs demo.tape            # writes demo.gif
+```
 
 ## License
 
