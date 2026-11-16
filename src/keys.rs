@@ -53,6 +53,8 @@ pub enum Cmd {
     MarkRow,
     /// Render an EXPLAIN tree plan with costly steps highlighted (`E`).
     ShowExplain,
+    /// Show the key bindings help overlay (`?`).
+    ShowHelp,
     /// Hide the current column (`H`).
     HideColumn,
     /// Restore all hidden columns (`A`).
@@ -94,10 +96,7 @@ pub fn normal(ev: KeyEvent) -> Option<Cmd> {
             forward: true,
             column: false,
         },
-        Char('?') => Cmd::BeginSearch {
-            forward: false,
-            column: false,
-        },
+        Char('?') => Cmd::ShowHelp,
         Char('\\') => Cmd::BeginSearch {
             forward: true,
             column: true,
@@ -230,13 +229,7 @@ mod tests {
                 column: false
             })
         );
-        assert_eq!(
-            normal(key('?')),
-            Some(Cmd::BeginSearch {
-                forward: false,
-                column: false
-            })
-        );
+        assert_eq!(normal(key('?')), Some(Cmd::ShowHelp));
         assert_eq!(
             normal(key('\\')),
             Some(Cmd::BeginSearch {

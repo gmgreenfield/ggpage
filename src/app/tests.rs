@@ -485,6 +485,22 @@ fn resize_column_sets_width() {
 }
 
 #[test]
+fn help_overlay_lists_bindings() {
+    let mut app = App::new(80, 24);
+    feed(&mut app, TABLE);
+    // The status bar advertises help.
+    assert!(app.frame().status.contains("?help"));
+    app.on_key(key('?'));
+    let popup = app.frame().popup.expect("help popup");
+    assert!(popup.title.contains("key bindings"));
+    assert!(popup.lines.iter().any(|l| l.contains("search")));
+    assert!(popup.lines.iter().any(|l| l.contains("quit")));
+    // dismissed by any key
+    app.on_key(key('q'));
+    assert!(app.frame().popup.is_none());
+}
+
+#[test]
 fn resize_changes_page_size() {
     let mut app = App::new(80, 24);
     feed(&mut app, TABLE);

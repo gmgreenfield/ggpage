@@ -17,6 +17,26 @@ use crate::view::{self, DEFAULT_CHOP_CAP, RenderLine, Span, SpanKind, Viewport, 
 use crate::width::{display_width, pad_to_width, slice_width};
 use crossterm::event::{KeyCode, KeyEvent};
 
+/// Key-bindings help, shown in the `?` overlay.
+const HELP: &str = "\
+Navigation                     Columns
+  j / k   ↓ / ↑   row               h / l  ← / →   move cursor
+  space / b       page              < / >         first / last
+  d / u           half page         H / A         hide / restore all
+  g / G           top / bottom      { / }         move left / right
+                                    ( / )         narrow / widen
+Search                             -S            toggle chop
+  /               search
+  \\               search one column  Inspect
+  n / N           next / prev         s           column stats
+                                      v           view cell (JSON/hex)
+Rows                                  m           mark row → diff two
+  (cursor row is highlighted)        E           EXPLAIN tree
+
+Export                             Other
+  x then c/m/j/i   to file            ?           this help
+  x then C/M/J/I   to clipboard       q           quit";
+
 /// A contiguous run of input: either a parsed table or plain passthrough text.
 enum Block {
     Table { table: Table, widths: Widths },
@@ -301,6 +321,7 @@ impl App {
             Some(Cmd::ViewCell) => self.view_cell(),
             Some(Cmd::MarkRow) => self.mark_row(),
             Some(Cmd::ShowExplain) => self.show_explain(),
+            Some(Cmd::ShowHelp) => self.show_help(),
             Some(Cmd::HideColumn) => self.hide_column(),
             Some(Cmd::UnhideColumns) => self.unhide_all(),
             Some(Cmd::MoveColumnLeft) => self.move_column(-1),
@@ -310,6 +331,11 @@ impl App {
             None => {}
         }
         false
+    }
+
+    fn show_help(&mut self) {
+        let lines: Vec<String> = HELP.lines().map(str::to_string).collect();
+        self.popup = Some(Popup::plain("ggpage — key bindings", lines));
     }
 
     fn view_cell(&mut self) {
@@ -888,7 +914,10 @@ impl App {
         if let Some(&m) = self.marks.first() {
             s.push_str(&format!("  mark:{}", m + 1));
         }
-        s.push_str(if at_end { "  (END)" } else { "" });
+        if at_end {
+            s.push_str("  (END)");
+        }
+        s.push_str("  ?help");
         pad_to_width(&s, self.width)
     }
 }

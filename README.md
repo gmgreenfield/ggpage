@@ -109,9 +109,10 @@ export PAGER=ggpage
 | `H` / `A` | hide current column / restore all columns |
 | `{` / `}` | move current column left / right |
 | `(` / `)` | narrow / widen current column |
-| `/` `?` | search forward / backward |
+| `/` | search |
 | `\` | search within the current column only |
 | `n` / `N` | next / previous match |
+| `?` | show this key-bindings help overlay |
 | `-S` | toggle column chopping |
 | `x` | export (then `c`/`m`/`j`/`i` to a file; shift for clipboard) |
 | `q`, `Ctrl-C` | quit |
