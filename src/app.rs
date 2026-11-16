@@ -40,10 +40,12 @@ impl Block {
 /// Interaction mode for incoming key events.
 enum Mode {
     Normal,
-    /// Editing the search prompt; `forward` is `/` vs `?`.
+    /// Editing the search prompt; `forward` is `/` vs `?`, `column` restricts
+    /// to the current column (`\`).
     Search {
         buf: String,
         forward: bool,
+        column: bool,
     },
     /// A `-` was pressed; the next key is the option letter.
     Option,
@@ -87,6 +89,8 @@ pub struct App {
     /// Last submitted search query and direction.
     query: String,
     search_forward: bool,
+    /// When set, search matches only this column.
+    search_col: Option<usize>,
     /// Current row (cursor) within the current block; highlighted and used by
     /// cell view, mark/diff, and search landing.
     cursor_row: usize,
@@ -120,6 +124,7 @@ impl App {
             height,
             query: String::new(),
             search_forward: true,
+            search_col: None,
             cursor_row: 0,
             marks: Vec::new(),
             message: None,
@@ -237,10 +242,11 @@ impl App {
     fn on_normal_key(&mut self, ev: KeyEvent) -> bool {
         match keys::normal(ev) {
             Some(Cmd::Do(a)) => return self.apply_action(a),
-            Some(Cmd::BeginSearch { forward }) => {
+            Some(Cmd::BeginSearch { forward, column }) => {
                 self.mode = Mode::Search {
                     buf: String::new(),
                     forward,
+                    column,
                 };
             }
             Some(Cmd::BeginOption) => self.mode = Mode::Option,
@@ -386,15 +392,20 @@ impl App {
             Some(SearchKey::Submit) => {
                 // Extract the query, ending the borrow before mutating mode.
                 let submitted = match &self.mode {
-                    Mode::Search { buf, forward } => Some((buf.clone(), *forward)),
+                    Mode::Search {
+                        buf,
+                        forward,
+                        column,
+                    } => Some((buf.clone(), *forward, *column)),
                     _ => None,
                 };
                 self.mode = Mode::Normal;
-                if let Some((q, fwd)) = submitted
+                if let Some((q, fwd, col)) = submitted
                     && !q.is_empty()
                 {
                     self.query = q;
                     self.search_forward = fwd;
+                    self.search_col = if col { Some(self.cursor_col) } else { None };
                     self.search_from(self.cursor_row, fwd);
                 }
             }
@@ -576,10 +587,13 @@ impl App {
             }
         };
         match self.blocks.get(self.cur) {
-            Some(Block::Table { table, .. }) => table
-                .rows
-                .get(idx)
-                .is_some_and(|row| row.iter().any(|c| hay_has(c.text()))),
+            Some(Block::Table { table, .. }) => table.rows.get(idx).is_some_and(|row| {
+                match self.search_col {
+                    // Single-column search: test just that cell.
+                    Some(c) => row.get(c).is_some_and(|cell| hay_has(cell.text())),
+                    None => row.iter().any(|c| hay_has(c.text())),
+                }
+            }),
             Some(Block::Text(lines)) => lines.get(idx).is_some_and(|l| hay_has(l)),
             None => false,
         }
@@ -606,8 +620,19 @@ impl App {
         };
 
         let prompt = match &self.mode {
-            Mode::Search { buf, forward } => {
-                Some(format!("{}{}", if *forward { '/' } else { '?' }, buf))
+            Mode::Search {
+                buf,
+                forward,
+                column,
+            } => {
+                let sigil = if *column {
+                    '\\'
+                } else if *forward {
+                    '/'
+                } else {
+                    '?'
+                };
+                Some(format!("{sigil}{buf}"))
             }
             Mode::Export => {
                 Some("export: [c]sv [m]d [j]son [i]nsert — SHIFT for clipboard, Esc cancels".into())
@@ -672,7 +697,16 @@ impl App {
             s.push_str(&format!("  block {}/{}", self.cur + 1, self.blocks.len()));
         }
         if !self.query.is_empty() {
-            s.push_str(&format!("  /{}", self.query));
+            match self
+                .search_col
+                .and_then(|c| self.current_table().map(|t| (c, t)))
+            {
+                Some((c, t)) => {
+                    let col = t.columns.get(c).map(String::as_str).unwrap_or("?");
+                    s.push_str(&format!("  \\{}:{}", col, self.query));
+                }
+                None => s.push_str(&format!("  /{}", self.query)),
+            }
         }
         if let Some(&m) = self.marks.first() {
             s.push_str(&format!("  mark:{}", m + 1));

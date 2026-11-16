@@ -91,6 +91,7 @@ export PAGER=ggpage
 | `v` | view current cell (pretty JSON, hex for binary, or text) |
 | `m` | mark current row; mark a second row to diff them |
 | `/` `?` | search forward / backward |
+| `\` | search within the current column only |
 | `n` / `N` | next / previous match |
 | `-S` | toggle column chopping |
 | `x` | export (then `c`/`m`/`j`/`i` to a file; shift for clipboard) |

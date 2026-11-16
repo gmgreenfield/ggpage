@@ -73,7 +73,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 ## Phase 2 — differentiators (DO NOT START until phase 1 done + tested)
 - [x] Column cursor (h/l/←/→) + reveal-scroll, highlighted header (foundation)
 - [ ] Column ops: hide / reorder / resize
-- [ ] Search within a single column
+- [x] Search within a single column (`\`, scoped to current column)
 - [x] Pretty JSON popup for a cell (`v`, smart JSON/hex/text)
 - [x] NULL vs '' distinct rendering (model + view distinguish)
 - [x] BLOB / hex display (`v` falls back to hex dump for binary)

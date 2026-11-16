@@ -35,8 +35,9 @@ pub enum Action {
 pub enum Cmd {
     /// Apply an action immediately.
     Do(Action),
-    /// Enter search-input mode; `forward` is `/` vs `?`.
-    BeginSearch { forward: bool },
+    /// Enter search-input mode; `forward` is `/` vs `?`. `column` restricts the
+    /// search to the current column (`\`).
+    BeginSearch { forward: bool, column: bool },
     /// Enter option mode (a `-` was pressed, as in `less -S`).
     BeginOption,
     /// Enter export mode (`x`): the next key chooses the format/destination.
@@ -74,8 +75,18 @@ pub fn normal(ev: KeyEvent) -> Option<Cmd> {
         Char('<') => Cmd::Do(A::ColHome),
         Char('>') => Cmd::Do(A::ColEnd),
 
-        Char('/') => Cmd::BeginSearch { forward: true },
-        Char('?') => Cmd::BeginSearch { forward: false },
+        Char('/') => Cmd::BeginSearch {
+            forward: true,
+            column: false,
+        },
+        Char('?') => Cmd::BeginSearch {
+            forward: false,
+            column: false,
+        },
+        Char('\\') => Cmd::BeginSearch {
+            forward: true,
+            column: true,
+        },
         Char('n') => Cmd::Do(A::NextMatch),
         Char('N') => Cmd::Do(A::PrevMatch),
 
@@ -189,8 +200,27 @@ mod tests {
 
     #[test]
     fn search_and_option_begin() {
-        assert_eq!(normal(key('/')), Some(Cmd::BeginSearch { forward: true }));
-        assert_eq!(normal(key('?')), Some(Cmd::BeginSearch { forward: false }));
+        assert_eq!(
+            normal(key('/')),
+            Some(Cmd::BeginSearch {
+                forward: true,
+                column: false
+            })
+        );
+        assert_eq!(
+            normal(key('?')),
+            Some(Cmd::BeginSearch {
+                forward: false,
+                column: false
+            })
+        );
+        assert_eq!(
+            normal(key('\\')),
+            Some(Cmd::BeginSearch {
+                forward: true,
+                column: true
+            })
+        );
         assert_eq!(normal(key('n')), Some(Cmd::Do(Action::NextMatch)));
         assert_eq!(normal(key('N')), Some(Cmd::Do(Action::PrevMatch)));
         assert_eq!(normal(key('-')), Some(Cmd::BeginOption));

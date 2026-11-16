@@ -212,6 +212,38 @@ fn next_and_prev_match_cycle() {
 }
 
 #[test]
+fn column_scoped_search_only_matches_current_column() {
+    // "1" appears in the id column and inside emails/bios of many rows; a
+    // column-scoped search on `name` should not match those.
+    let input = "\
++----+-------+
+| id | name  |
++----+-------+
+|  1 | alice |
+|  2 | name1 |
+|  3 | bob   |
++----+-------+
+3 rows in set
+";
+    let mut app = App::new(80, 10);
+    feed(&mut app, input);
+    // Global search for "1" lands on row 0 (id = 1).
+    app.on_key(key('/'));
+    app.on_key(key('1'));
+    app.on_key(code(KeyCode::Enter));
+    assert_eq!(app.cursor_row_for_test(), 0);
+
+    // Column-scoped search ('\\') on the `name` column: cursor to name first.
+    app.on_key(key('>')); // cursor to last column (name)
+    app.on_key(key('\\'));
+    app.on_key(key('1'));
+    app.on_key(code(KeyCode::Enter));
+    // Only "name1" (row 1) matches within the name column.
+    assert_eq!(app.cursor_row_for_test(), 1);
+    assert!(app.frame().status.contains("\\name:1"));
+}
+
+#[test]
 fn search_prompt_shows_typed_query() {
     let mut app = App::new(80, 10);
     feed(&mut app, TABLE);
